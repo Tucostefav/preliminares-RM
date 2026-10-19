@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · RM Preliminar</title>
+  <meta name="theme-color" content="#0C1424">
+  <link rel="preload" href="vendor/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/login.js"></script>
+</head>
+<body class="entrada">
+  <main class="entrada-tarjeta">
+    <div class="marca">
+      <span class="sello" aria-hidden="true">RM</span>
+      <span class="marca-nombre">Preliminar</span>
+    </div>
+    <div class="entrada-texto">
+      <h1>Entra a tu cuenta</h1>
+      <p>Renta preliminar de personas jurídicas en Panamá.</p>
+    </div>
+    <form id="formEntrada" class="entrada-form" novalidate>
+      <label class="campo">Usuario <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label>
+      <label class="campo">Contraseña <input id="clave" name="clave" type="password" autocomplete="current-password" required></label>
+      <p id="mensaje" class="mensaje" role="alert"></p>
+      <button class="boton" id="entrar">Entrar</button>
+    </form>
+    <p class="entrada-pie">Si olvidaste tu contraseña, pídele a un administrador que la restablezca.</p>
+  </main>
+</body>
+</html>

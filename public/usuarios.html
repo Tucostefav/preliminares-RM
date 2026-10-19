@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usuarios · RM Preliminar</title>
+  <meta name="theme-color" content="#0C1424">
+  <link rel="preload" href="vendor/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/usuarios.js"></script>
+</head>
+<body>
+  <header class="barra">
+    <a class="marca" href="/">
+      <span class="sello" aria-hidden="true">RM</span>
+      <span class="marca-nombre">Preliminar</span>
+      <span class="marca-sub">Impuesto sobre la renta · Panamá</span>
+    </a>
+    <nav class="barra-acciones">
+      <a href="/" class="enlace">Calcular</a>
+      <a href="usuarios.html" id="irUsuarios" class="enlace oculto" aria-current="page">Usuarios</a>
+      <a href="#cuenta" id="cuenta" class="cuenta oculto"><span class="avatar" id="avatar"></span><span id="usuarioNombre"></span></a>
+      <button type="button" id="salir" class="enlace" hidden>Salir</button>
+    </nav>
+  </header>
+
+  <main class="pagina">
+    <p id="sinBase" class="panel aviso-panel oculto">Los usuarios se guardan en la base de datos, y la app no está conectada a ella. Revisa las variables DB_* en Hostinger.</p>
+
+    <section id="equipo" class="oculto">
+      <header class="cabecera">
+        <div>
+          <p class="rotulo">Equipo</p>
+          <h1>Usuarios</h1>
+        </div>
+        <div class="acciones"><button id="nuevo" class="boton boton-corto">Nuevo usuario</button></div>
+      </header>
+      <div class="panel">
+        <div class="panel-cab">
+          <h2>Quién puede entrar</h2>
+          <p class="panel-sub">Los administradores crean y editan usuarios. Los usuarios calculan y usan el historial.</p>
+        </div>
+        <div class="tabla-contenedor"><table id="tablaUsuarios" class="tabla tabla-usuarios"></table></div>
+      </div>
+    </section>
+
+    <section id="cuentaPanel" class="panel cuenta-panel oculto">
+      <div class="panel-cab">
+        <h2>Mi cuenta</h2>
+        <p class="panel-sub" id="cuentaResumen"></p>
+      </div>
+      <form id="formClave" class="form-clave" novalidate>
+        <label class="campo">Contraseña actual <input id="claveActual" type="password" autocomplete="current-password"></label>
+        <div class="par">
+          <label class="campo">Nueva contraseña <input id="claveNueva" type="password" autocomplete="new-password" minlength="8"></label>
+          <label class="campo">Repite la nueva <input id="claveRepetida" type="password" autocomplete="new-password"></label>
+        </div>
+        <p id="mensajeClave" class="mensaje" role="status"></p>
+        <div><button class="boton-sec">Cambiar contraseña</button></div>
+      </form>
+    </section>
+  </main>
+
+  <dialog id="dialogo" class="dialogo" aria-labelledby="dialogoTitulo">
+    <form id="formUsuario" method="dialog" novalidate>
+      <header class="panel-cab">
+        <h2 id="dialogoTitulo">Nuevo usuario</h2>
+        <p class="panel-sub" id="dialogoSub">Recibe acceso a la calculadora y al historial.</p>
+      </header>
+      <div class="dialogo-campos">
+        <label class="campo">Nombre <input id="uNombre" autocomplete="off" maxlength="120"></label>
+        <label class="campo">Usuario <input id="uUsuario" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="ej. maria.perez"></label>
+        <label class="campo">Rol
+          <select id="uRol">
+            <option value="usuario">Usuario · calcula y guarda en el historial</option>
+            <option value="admin">Administrador · además maneja los usuarios</option>
+          </select>
+        </label>
+        <label class="campo"><span id="uClaveEtiqueta">Contraseña inicial</span> <input id="uClave" type="password" autocomplete="new-password" placeholder="Al menos 8 caracteres"></label>
+        <label class="casilla" id="uActivoCampo"><input type="checkbox" id="uActivo" checked> Puede entrar a la app</label>
+        <p id="mensajeUsuario" class="mensaje" role="alert"></p>
+      </div>
+      <footer class="dialogo-pie">
+        <button type="button" id="borrarUsuario" class="boton-peligro">Borrar usuario</button>
+        <span class="espacio"></span>
+        <button type="button" id="cancelar" class="boton-sec">Cancelar</button>
+        <button id="guardarUsuario" class="boton boton-corto">Crear usuario</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>

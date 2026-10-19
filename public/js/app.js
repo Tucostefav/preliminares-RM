@@ -3,6 +3,7 @@ import { proyectar } from './proyeccion.js';
 import { PLANES_DE_CUENTAS, PARAMETROS_2026 } from './config.js';
 import { lineasDePdf, leerDeclaracion } from './declaracion.js';
 import { calendarioDePagos, analizarCAIR } from './calendario.js';
+import { api, cargarSesion } from './sesion.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -399,20 +400,17 @@ $('imprimir').addEventListener('click', () => window.print());
 window.addEventListener('beforeprint', () => { $('declaracionCompleta').open = true; });
 
 // Historial en la base de datos (solo si el servidor la tiene configurada)
-async function api(ruta, opciones = {}) {
-  const res = await fetch(ruta, { headers: { 'Content-Type': 'application/json' }, ...opciones });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
-  return res.status === 204 ? null : res.json();
-}
 
 async function cargarHistorial() {
   const calculos = await api('/api/calculos');
+  // Se guarda impuesto por pagar menos saldo a favor: negativo es a favor.
+  const neto = (v) => (v < 0 ? `${balboas(-v)}<small>a favor</small>` : `${balboas(v)}<small>por pagar</small>`);
   const meses = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   $('tablaHistorial').innerHTML = calculos.length
-    ? `<thead><tr><th>Cliente</th><th>RUC</th><th>Corte</th><th>Por pagar al corte</th><th>Al cierre</th><th>Guardado</th><th></th></tr></thead><tbody>${calculos
-        .map((c) => `<tr><td>${escapar(c.cliente)}</td><td>${escapar(c.ruc)}</td><td>${meses[c.mesCorte]} ${c.anio}</td>
-          <td>${balboas(Number(c.impuestoHoy))}</td><td>${balboas(Number(c.impuestoCierre))}</td>
-          <td>${new Date(c.creado).toLocaleDateString('es-PA')}</td>
+    ? `<thead><tr><th>Cliente</th><th>Corte</th><th>Al corte</th><th>Al cierre</th><th>Guardado</th><th></th></tr></thead><tbody>${calculos
+        .map((c) => `<tr><td><strong>${escapar(c.cliente)}</strong><small>${escapar(c.ruc)}</small></td><td>${meses[c.mesCorte]} ${c.anio}</td>
+          <td>${neto(Number(c.impuestoHoy))}</td><td>${neto(Number(c.impuestoCierre))}</td>
+          <td>${new Date(c.creado).toLocaleDateString('es-PA')}<small>${escapar(c.usuario || '—')}</small></td>
           <td><button class="boton-sec" data-ver="${c.id}">Ver</button> <button class="boton-sec" data-borrar="${c.id}">Borrar</button></td></tr>`)
         .join('')}</tbody>`
     : '<tbody><tr><td>Todavía no hay cálculos guardados.</td></tr></tbody>';
@@ -468,7 +466,7 @@ $('guardar').addEventListener('click', async () => {
   }
 });
 
-api('/api/estado')
+cargarSesion()
   .then(async ({ baseDeDatos }) => {
     if (!baseDeDatos) return;
     $('historial').classList.remove('oculto');

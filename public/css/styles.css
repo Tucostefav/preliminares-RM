@@ -44,7 +44,7 @@ body {
 h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.02em; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
-.oculto { display: none !important; }
+.oculto, [hidden] { display: none !important; }
 
 /* Rótulo: etiqueta en mono, la voz de "libro contable" del producto */
 .rotulo {
@@ -319,6 +319,9 @@ button, input, select { font: inherit; color: inherit; }
 .ayuda { color: var(--tinta-3); font-size: 13px; margin: 0 0 12px; }
 
 #tablaHistorial button { height: 28px; padding: 0 10px; font-size: 12px; }
+#tablaHistorial td small { display: block; color: var(--tinta-3); font-size: 12px; }
+#tablaHistorial td strong { font-weight: 500; }
+#tablaHistorial td:first-child { min-width: 180px; }
 #tablaHistorial td:last-child { display: flex; gap: 6px; justify-content: flex-end; }
 
 /* Celular y tableta */
@@ -360,4 +363,85 @@ button, input, select { font: inherit; color: inherit; }
   .cifra.destacada { background: #fff; color: var(--tinta); border-color: var(--linea); }
   .plegable-panel summary::after { content: none; }
   .linea svg { min-width: 0; }
+}
+
+/* Cuenta en la barra superior */
+.barra-acciones { display: flex; align-items: center; gap: 18px; }
+.barra-acciones button.enlace { border: 0; background: none; padding: 0; cursor: pointer; font-size: 14px; }
+.barra-acciones [aria-current="page"] { color: var(--tinta); }
+a.marca { color: inherit; text-decoration: none; }
+.cuenta { display: inline-flex; align-items: center; gap: 8px; color: var(--tinta); text-decoration: none; font-weight: 500; }
+.avatar {
+  display: inline-grid; place-items: center; flex: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--acento-suave); color: var(--acento);
+  font: 600 11px/1 var(--mono); letter-spacing: 0.02em;
+}
+
+/* Pantalla de entrada */
+.entrada {
+  min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+  background:
+    radial-gradient(60% 50% at 85% 0%, rgba(14, 124, 102, 0.10), transparent 70%),
+    radial-gradient(50% 40% at 0% 100%, rgba(12, 20, 36, 0.06), transparent 70%),
+    var(--lienzo);
+}
+.entrada-tarjeta {
+  width: 100%; max-width: 400px; display: grid; gap: 28px;
+  padding: 36px 32px; border-radius: 18px;
+  background: var(--superficie); border: 1px solid var(--linea); box-shadow: var(--sombra);
+}
+.entrada-texto h1 { font-size: 26px; letter-spacing: -0.03em; }
+.entrada-texto p { margin: 6px 0 0; color: var(--tinta-2); }
+.entrada-form { display: grid; gap: 14px; }
+.entrada-form .boton { margin-top: 4px; }
+.entrada-pie { margin: 0; color: var(--tinta-3); font-size: 12.5px; }
+.mensaje { margin: 0; min-height: 1em; color: var(--alerta); font-size: 13px; }
+.mensaje:empty { display: none; }
+.mensaje.ok { color: var(--acento); }
+.boton:disabled { opacity: 0.6; cursor: progress; }
+
+/* Página de usuarios */
+.pagina { max-width: 1040px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 16px; }
+.pagina > section { display: grid; gap: 16px; }
+.boton-corto { width: auto; height: 38px; font-size: 14px; }
+.aviso-panel { margin: 0; color: var(--aviso); }
+.tabla-usuarios td { vertical-align: middle; }
+.tabla-usuarios td:nth-child(2), .tabla-usuarios th:nth-child(2),
+.tabla-usuarios td:nth-child(3), .tabla-usuarios th:nth-child(3),
+.tabla-usuarios td:nth-child(4), .tabla-usuarios th:nth-child(4) { text-align: left; }
+.tabla-usuarios td.fecha { font-family: var(--mono); font-size: 12.5px; color: var(--tinta-2); }
+.tabla-usuarios tr.inactivo td { color: var(--tinta-3); }
+.tabla-usuarios .boton-sec { height: 30px; padding: 0 12px; font-size: 12.5px; }
+.persona { display: flex; align-items: center; gap: 12px; }
+.persona strong { font-weight: 500; }
+.persona small { display: block; font: 400 12px var(--mono); color: var(--tinta-3); }
+.solo-cel { display: none; }
+@media (max-width: 600px) { .solo-cel { display: inline; } }
+.cuenta-panel { scroll-margin-top: 72px; }
+.form-clave { display: grid; gap: 12px; max-width: 560px; }
+
+/* Diálogo */
+.dialogo {
+  width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--linea); border-radius: 16px;
+  background: var(--superficie); color: var(--tinta); box-shadow: 0 24px 64px -24px rgba(12, 20, 36, 0.35);
+}
+.dialogo::backdrop { background: rgba(12, 20, 36, 0.32); backdrop-filter: blur(2px); }
+.dialogo form { padding: 24px; display: grid; gap: 4px; }
+.dialogo-campos { display: grid; gap: 12px; }
+.dialogo-pie { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--linea-2); }
+.dialogo-pie .boton-sec { height: 38px; }
+.espacio { flex: 1; }
+.boton-peligro { height: 38px; padding: 0 4px; border: 0; background: none; color: var(--alerta); font-weight: 500; cursor: pointer; font-size: 13px; }
+.boton-peligro:hover { text-decoration: underline; }
+.campo input[readonly] { background: var(--linea-2); color: var(--tinta-2); }
+
+@media (max-width: 600px) {
+  .barra-acciones { gap: 12px; font-size: 13px; }
+  .cuenta #usuarioNombre { display: none; }
+  #irHistorial { display: none; }
+  .entrada-tarjeta { padding: 28px 20px; }
+  .pagina { padding: 20px 16px 48px; }
+  .tabla-usuarios td.fecha, .tabla-usuarios th:nth-child(4),
+  .tabla-usuarios td:nth-child(2), .tabla-usuarios th:nth-child(2) { display: none; }
 }

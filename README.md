@@ -22,8 +22,9 @@ resultados que el usuario decide guardar en el historial.
 
 | Archivo | Qué hace |
 | --- | --- |
-| `src/server.js` | Servidor Express: entrega la página, pide usuario y contraseña, API del historial |
-| `src/db.js` | Conexión a MySQL y creación automática de las tablas `clientes` y `calculos` |
+| `src/server.js` | Servidor Express: entrega la página, inicio de sesión, API de usuarios y del historial |
+| `src/auth.js` | Contraseñas cifradas con scrypt, tokens de sesión y freno a intentos fallidos |
+| `src/db.js` | Conexión a MySQL y creación automática de las tablas `clientes`, `calculos`, `usuarios` y `sesiones` |
 | `public/js/config.js` | Tarifa 25 %, CAIR, arrastre de pérdidas, partidas del estimado y reglas para clasificar cuentas |
 | `public/js/lector.js` | Lee el balance de prueba, toma solo auxiliares y normaliza signos |
 | `public/js/motor.js` | Renta gravable (normal y CAIR), impuesto causado, estimado, complementario y aviso de operación |
@@ -32,6 +33,7 @@ resultados que el usuario decide guardar en el historial.
 | `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
 | `public/vendor/pdfjs/` | pdf.js 4.10.38 (renombrado de .mjs a .js porque Hostinger no entrega .mjs) para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
+| `public/login.html`, `public/usuarios.html` | Pantalla de entrada y administración de usuarios (`js/login.js`, `js/usuarios.js`, `js/sesion.js`) |
 | `public/vendor/xlsx.full.min.js` | SheetJS 0.18.5 para leer Excel (licencia Apache 2.0) |
 
 ## Correr en el computador
@@ -60,9 +62,26 @@ Sin variables `DB_*` la app funciona igual, solo que sin historial.
    en **Bases de datos → MySQL**; el host suele ser `localhost`, pero usa el que muestre el panel.
 5. Desplegar. Las tablas se crean solas la primera vez que la app arranca. Cada push a `main` vuelve a
    desplegar si la implementación automática está activa.
-6. Comprobar: `https://tu-dominio/salud` responde `{"ok":true}` y la página pide usuario y contraseña.
+6. Comprobar: `https://tu-dominio/salud` responde `{"ok":true}` y la página muestra la pantalla de entrada.
 
-En producción la app no abre si falta `APP_PASSWORD`, porque maneja datos de clientes.
+En producción la app no abre si no hay ni `APP_PASSWORD` ni usuarios en la base, porque maneja datos de clientes.
+
+## Usuarios
+
+- La primera vez que la app arranca con base de datos crea un administrador con `APP_USER` y
+  `APP_PASSWORD`. Desde ahí se entra con ese usuario y se cambia la contraseña en **Mi cuenta**;
+  cambiar `APP_PASSWORD` en Hostinger ya no cambia la contraseña.
+- **Administrador**: calcula, usa el historial y crea, edita, desactiva o borra usuarios.
+  **Usuario**: calcula y usa el historial.
+- La app no deja borrar ni quitar el rol al último administrador activo, ni que alguien se desactive
+  a sí mismo.
+- Las contraseñas se guardan cifradas (scrypt). La sesión dura 12 horas y vive en una cookie
+  `HttpOnly`; al desactivar a alguien o cambiarle la contraseña se cierran sus sesiones.
+- Tras 5 intentos fallidos con el mismo usuario hay que esperar 15 minutos.
+- El historial muestra quién guardó cada cálculo.
+- Si un administrador olvida su contraseña, otro administrador se la restablece. Si era el único,
+  se borra su fila de la tabla `usuarios` en phpMyAdmin y se reinicia la app: al no haber ningún
+  administrador activo, `APP_USER` vuelve a quedar como administrador con la contraseña de `APP_PASSWORD`.
 
 ## Reglas que aplica
 
