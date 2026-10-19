@@ -93,8 +93,14 @@ $('archivoBalance').addEventListener('change', async (e) => {
 
 // Declaración del año anterior en PDF: pdf.js se carga solo cuando se necesita.
 async function cargarPdfjs() {
-  const pdfjs = await import('../vendor/pdfjs/pdf.min.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
+  let pdfjs;
+  try {
+    pdfjs = await import('../vendor/pdfjs/pdf.min.js');
+  } catch (err) {
+    console.error(err);
+    throw new Error('No pude cargar el lector de PDF desde el servidor. Recarga la página con Ctrl+F5 y vuelve a intentar.');
+  }
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs/pdf.worker.min.js', import.meta.url).href;
   return pdfjs;
 }
 

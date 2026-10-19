@@ -29,7 +29,7 @@ resultados que el usuario decide guardar en el historial.
 | `public/js/motor.js` | Renta gravable (normal y CAIR), impuesto causado, estimado, complementario y aviso de operación |
 | `public/js/proyeccion.js` | Extiende el acumulado a los meses siguientes |
 | `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
-| `public/vendor/pdfjs/` | pdf.js 4.10.38 para leer el PDF en el navegador (licencia Apache 2.0) |
+| `public/vendor/pdfjs/` | pdf.js 4.10.38 (renombrado de .mjs a .js porque Hostinger no entrega .mjs) para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
 | `public/vendor/xlsx.full.min.js` | SheetJS 0.18.5 para leer Excel (licencia Apache 2.0) |
 
