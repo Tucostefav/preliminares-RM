@@ -33,6 +33,7 @@ preliminar (borrador o terminado), para poder retomarlo después.
 | `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
 | `public/vendor/pdfjs/` | pdf.js 4.10.38 (renombrado de .mjs a .js porque Hostinger no entrega .mjs) para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
+| `public/js/exportar.js` | Libro de Excel del preliminar |
 | `public/login.html`, `public/usuarios.html` | Pantalla de entrada y administración de usuarios (`js/login.js`, `js/usuarios.js`, `js/sesion.js`) |
 | `public/vendor/xlsx.full.min.js` | SheetJS 0.18.5 para leer Excel (licencia Apache 2.0) |
 
@@ -79,6 +80,14 @@ En producción la app no abre si no hay ni `APP_PASSWORD` ni usuarios en la base
   `HttpOnly`; al desactivar a alguien o cambiarle la contraseña se cierran sus sesiones.
 - Tras 5 intentos fallidos con el mismo usuario hay que esperar 15 minutos.
 - La lista de preliminares muestra quién guardó y quién editó por última vez cada uno.
+
+## Exportar
+
+- **Excel** descarga un libro con las hojas Resumen, Declaración (al corte y al cierre), Calendario de
+  pagos, Base de la proyección y Cuentas (cada cuenta del balance con su clasificación). Los montos son
+  números con dos decimales, no texto, para seguir trabajando sobre ellos.
+- **PDF** abre la impresión del navegador con un formato de informe en tamaño carta; se elige "Guardar
+  como PDF". El nombre propuesto es `Preliminar <cliente> <mes> <año>`.
 
 ## Borradores
 

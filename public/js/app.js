@@ -4,6 +4,7 @@ import { PLANES_DE_CUENTAS, PARAMETROS_2026 } from './config.js';
 import { lineasDePdf, leerDeclaracion } from './declaracion.js';
 import { calendarioDePagos, analizarCAIR } from './calendario.js';
 import { api, cargarSesion } from './sesion.js';
+import { libroDelPreliminar, nombreDeArchivo, descargarLibro } from './exportar.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -16,6 +17,8 @@ let preliminar = { id: null, estado: null, actualizado: null, actualizadoPor: nu
 let sucio = false; // hay cambios sin guardar
 let hayBase = false;
 let filtro = '';
+let informe = null; // lo que se está viendo, para exportarlo
+let usuarioActual = '';
 
 const FILAS = [
   ['Patrimonio', null],
@@ -399,6 +402,11 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
       <li>La proyección suma, por cada mes que falta, el promedio mensual de los meses reales en ingresos, costos, gastos y ajustes; las cuentas de balance quedan como están al corte.</li>
       <li>Es un cálculo preliminar para planeación y no reemplaza la declaración jurada definitiva.</li>
     </ul>`;
+  informe = {
+    escenarios, cuadre, cal, cair, filas: FILAS, contexto: { anio, mesCorte, crecimiento: contexto.crecimiento },
+    cliente: $('cliente').value.trim() || 'Cliente sin nombre', ruc: $('ruc').value.trim(), usuario: usuarioActual,
+  };
+  $('impreso').textContent = `Generado el ${new Date().toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })}${usuarioActual && usuarioActual !== 'Local' ? ` por ${usuarioActual}` : ''}`;
   $('vacio').classList.add('oculto');
   $('resultados').classList.remove('oculto');
   // En escritorio los resultados ya están a la vista; en celular quedan debajo del formulario.
@@ -409,8 +417,20 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
   }
 }
 
+// El PDF sale de imprimir la página; el título del documento es el nombre que propone el navegador.
+let tituloOriginal = document.title;
 $('imprimir').addEventListener('click', () => window.print());
-window.addEventListener('beforeprint', () => { $('declaracionCompleta').open = true; });
+window.addEventListener('beforeprint', () => {
+  $('declaracionCompleta').open = true;
+  tituloOriginal = document.title;
+  if (informe) document.title = nombreDeArchivo({ ...informe.contexto, cliente: informe.cliente });
+});
+window.addEventListener('afterprint', () => { document.title = tituloOriginal; });
+
+$('exportarExcel').addEventListener('click', () => {
+  if (!informe) return;
+  descargarLibro(XLSX, libroDelPreliminar(XLSX, informe), `${nombreDeArchivo({ ...informe.contexto, cliente: informe.cliente })}.xlsx`);
+});
 
 
 // Preliminares guardados: borradores para seguir después y preliminares terminados que se pueden ajustar.
@@ -606,7 +626,8 @@ $('tablaHistorial').addEventListener('click', async (e) => {
 });
 
 cargarSesion()
-  .then(async ({ baseDeDatos }) => {
+  .then(async ({ baseDeDatos, nombre }) => {
+    usuarioActual = nombre;
     if (!baseDeDatos) return;
     hayBase = true;
     for (const id of ['historial', 'irHistorial', 'expedienteEstado', 'guardarBorrador']) $(id).classList.remove('oculto');

@@ -208,6 +208,7 @@ button, input, select { font: inherit; color: inherit; }
 .cifra-monto small { font-size: 0.55em; color: var(--tinta-3); font-weight: 500; margin-right: 4px; letter-spacing: 0; }
 .cifra-pie { font-size: 12.5px; color: var(--tinta-2); display: flex; align-items: center; gap: 6px; }
 .etiqueta {
+  white-space: nowrap;
   display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 99px;
   font: 500 11px/1 var(--mono); letter-spacing: 0.02em;
 }
@@ -355,14 +356,45 @@ button, input, select { font: inherit; color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* Informe impreso o PDF: carta, una columna de bloques y tablas que caben en el ancho */
+.impreso { display: none; }
+@page { size: letter; margin: 14mm 12mm; }
 @media print {
-  body { background: #fff; font-size: 11px; }
-  .barra, .expediente, .acciones, #historial, .vacio { display: none !important; }
-  .app { display: block; padding: 0; }
-  .panel, .cifra { box-shadow: none; break-inside: avoid; }
-  .cifra.destacada { background: #fff; color: var(--tinta); border-color: var(--linea); }
-  .plegable-panel summary::after { content: none; }
+  body { background: #fff; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .barra, .expediente, .acciones, #historial, .vacio, .notas h3 + ul li:empty { display: none !important; }
+  .app, .lienzo, .resultados { display: block; padding: 0; max-width: none; animation: none; }
+  .resultados > * + *, .lienzo > * + * { margin-top: 12px; }
+  .impreso { display: flex; justify-content: space-between; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1.5px solid var(--tinta); font: 500 9.5px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-2); }
+  .cabecera { padding: 0; }
+  .cabecera h1 { font-size: 22px; }
+  .cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .cifra { padding: 12px 14px; break-inside: avoid; }
+  .cifra-monto { font-size: 22px; }
+  .cifra.destacada { background: var(--tinta); color: #fff; }
+  .panel, .cifra { box-shadow: none; border-radius: 10px; }
+  .panel { padding: 14px 16px; }
+  .panel-cab { margin-bottom: 10px; break-after: avoid; }
+  .panel h2 { font-size: 14px; }
+  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #cair, #cuadre, .linea { break-inside: avoid; }
+  .linea { overflow: visible; margin: 0 0 6px; padding: 0; }
   .linea svg { min-width: 0; }
+  .tabla-contenedor { overflow: visible; }
+  .tabla th, .tabla td, #calendario th, #calendario td { padding: 5px 6px; font-size: 9.5px; }
+  .tabla th, #calendario th { font-size: 8.5px; }
+  .tabla td, #calendario td { font-size: 10px; }
+  .tabla tr.seccion td { padding-top: 12px; }
+  #calendario td:nth-child(2) { min-width: 0; }
+  #calendario td.nota { min-width: 0; font-size: 9px; }
+  #calendario td:first-child { white-space: nowrap; font-size: 9.5px; }
+  #calendario .punto { font-size: 9.5px; }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  #base .tabla th:first-child, #base .tabla td:first-child { white-space: nowrap; }
+  .plegable-panel summary::after, .plegable-panel[open] summary::after { content: none; }
+  .cifra-pie { flex-wrap: wrap; font-size: 10px; }
+  #declaracionCompleta { break-before: page; }
+  .notas { margin-top: 14px; font-size: 9.5px; break-inside: avoid; }
 }
 
 /* Cuenta en la barra superior */
