@@ -59,3 +59,10 @@ label.casilla { flex-direction: row; align-items: center; gap: 8px; align-self: 
 .resumen small { display: block; font-size: 13px; color: var(--suave); }
 .notas li.ok { color: var(--ok); }
 .notas li.error { color: var(--error); font-weight: 600; }
+.declaracion { margin: 4px 0 16px; padding: 12px 14px; border: 1px solid var(--borde); border-radius: 8px; font-size: 13px; }
+.declaracion dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 16px; margin: 8px 0 0; }
+.declaracion dl div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--borde); }
+.declaracion dt { color: var(--suave); }
+.declaracion dd { margin: 0; font-variant-numeric: tabular-nums; }
+.declaracion .aviso { color: #8a5a00; margin: 8px 0 0; }
+input.leido { background: #eef6ee; }

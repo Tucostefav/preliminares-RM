@@ -11,8 +11,9 @@ resultados que el usuario decide guardar en el historial.
 
 1. Abrir la página y cargar el balance de prueba al corte (Excel o CSV con código, nombre y saldo final).
    Elegir qué dígito usa el plan de cuentas del cliente para ingresos, costos y gastos.
-2. Escribir los valores de la declaración del año anterior: impuesto estimado declarado para este año,
-   saldo a favor y la cuota de arrastre de pérdidas disponible.
+2. Subir el PDF de la declaración jurada de rentas del año anterior (formulario de renta jurídica de
+   e-Tax). La app lee los renglones y llena el impuesto estimado, el saldo a favor, la tarifa, el CAIR y
+   la cuota de arrastre de pérdidas del año declarado. Las pérdidas de años anteriores se agregan a mano.
 3. Agregar ajustes fiscales que la contabilidad no muestra (ingresos exentos o de fuente extranjera,
    otros no deducibles, retenciones).
 4. Pulsar **Calcular**. La tabla muestra el corte real y los tres meses proyectados.
@@ -27,6 +28,8 @@ resultados que el usuario decide guardar en el historial.
 | `public/js/lector.js` | Lee el balance de prueba, toma solo auxiliares y normaliza signos |
 | `public/js/motor.js` | Renta gravable (normal y CAIR), impuesto causado, estimado, complementario y aviso de operación |
 | `public/js/proyeccion.js` | Extiende el acumulado a los meses siguientes |
+| `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
+| `public/vendor/pdfjs/` | pdf.js 4.10.38 para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
 | `public/vendor/xlsx.full.min.js` | SheetJS 0.18.5 para leer Excel (licencia Apache 2.0) |
 

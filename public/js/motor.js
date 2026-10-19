@@ -53,7 +53,7 @@ export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS.estandar) {
  * @param {Array<{codigo:string,nombre:string,valor:number}>} cuentas  auxiliares normalizadas
  * @param {object} anterior  datos de la declaración del año pasado
  *   impuestoEstimado (estimado declarado para este año), estimadoPagado (si se conoce el valor exacto),
- *   saldoAFavor, arrastrePerdidas (cuotas del 20 % disponibles este año), noAplicarCAIR
+ *   saldoAFavor, arrastrePerdidas (cuotas del 20 % disponibles este año), noAplicarCAIR, tarifa
  * @param {object} ajustes  ingresosExentos, interesesExentos, costosGastosExentos, otrosNoDeducibles, retenciones
  * @param {object} opciones  mes (1-12) al que corresponde la liquidación, plan de cuentas
  */
@@ -105,7 +105,8 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const rentaGravable = Math.max(rentaGravableNormal, rentaGravableCAIR);
 
   // Impuesto y créditos
-  const impuestoCausado = rentaGravable * p.tarifaPersonaJuridica;
+  const tarifa = anterior.tarifa ?? p.tarifaPersonaJuridica; // la de la declaración anterior si se leyó
+  const impuestoCausado = rentaGravable * tarifa;
   const partidasVencidas = p.mesesPartidasEstimado.filter((m) => m <= mes).length;
   const estimadoPagado =
     anterior.estimadoPagado ??

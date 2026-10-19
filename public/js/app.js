@@ -1,11 +1,13 @@
 import { buscarHojaBalance, leerTotalesReportados, aNumero } from './lector.js';
 import { proyectar } from './proyeccion.js';
 import { PLANES_DE_CUENTAS } from './config.js';
+import { lineasDePdf, leerDeclaracion } from './declaracion.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const balboas = (v) => `B/. ${numero.format(v)}`;
 let hojas = null; // hojas del libro cargado: [{ nombre, filas }]
+let declaracion = null; // datos leídos del PDF de la declaración anterior
 let ultimo = null; // último cálculo mostrado, para guardarlo en el historial
 
 const FILAS = [
@@ -45,7 +47,7 @@ const FILAS = [
   ['Renta gravable, CAIR (4,67 % de ingresos)', (r) => r.renta.rentaGravableCAIR],
   ['Renta gravable', (r) => r.renta.rentaGravable, 'total'],
   ['Liquidación', null],
-  ['Impuesto causado (25 %)', (r) => r.liquidacion.impuestoCausado, 'total'],
+  ['Impuesto causado', (r) => r.liquidacion.impuestoCausado, 'total'],
   ['Impuesto estimado pagado', (r) => r.liquidacion.estimadoPagado],
   ['Retenciones y créditos', (r) => r.liquidacion.retenciones],
   ['Saldo a favor del año anterior', (r) => r.liquidacion.saldoAFavorAnterior],
@@ -89,6 +91,66 @@ $('archivoBalance').addEventListener('change', async (e) => {
   }
 });
 
+// Declaración del año anterior en PDF: pdf.js se carga solo cuando se necesita.
+async function cargarPdfjs() {
+  const pdfjs = await import('../vendor/pdfjs/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
+  return pdfjs;
+}
+
+const moneda = (v) => (v ? balboas(v) : '—');
+
+$('archivoDeclaracion').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const estado = $('estadoDeclaracion');
+  try {
+    estado.textContent = 'Leyendo la declaración…';
+    estado.className = 'estado';
+    const pdfjs = await cargarPdfjs();
+    declaracion = leerDeclaracion(await lineasDePdf(pdfjs, new Uint8Array(await archivo.arrayBuffer())));
+    const d = declaracion;
+    const llenar = (id, valor) => {
+      $(id).value = valor ? String(Math.round(valor * 100) / 100) : '';
+      $(id).classList.add('leido');
+    };
+    llenar('impuestoEstimado', d.paraLiquidar.impuestoEstimado);
+    llenar('saldoAFavor', d.paraLiquidar.saldoAFavor);
+    llenar('arrastrePerdidas', d.paraLiquidar.arrastrePerdidas);
+    $('tarifa').value = String(d.tarifa * 100);
+    $('noAplicarCAIR').checked = d.aprobacionNoCAIR;
+    if (!$('cliente').value.trim() && d.razonSocial) $('cliente').value = d.razonSocial;
+    if (!$('ruc').value.trim() && d.ruc) $('ruc').value = d.dv ? `${d.ruc} DV ${d.dv}` : d.ruc;
+
+    const s = d.resumen;
+    $('resumenDeclaracion').innerHTML = `
+      <strong>${escapar(d.razonSocial || 'Declaración')} · periodo ${d.periodo || '¿?'} · tarifa ${d.tarifa * 100} %</strong>
+      <dl>
+        <div><dt>Ingresos gravables</dt><dd>${moneda(s.ingresosGravables)}</dd></div>
+        <div><dt>Costos deducibles</dt><dd>${moneda(s.costosDeducibles)}</dd></div>
+        <div><dt>Gastos deducibles</dt><dd>${moneda(s.gastosDeducibles)}</dd></div>
+        <div><dt>Renta neta gravable</dt><dd>${moneda(s.rentaNetaGravable)}</dd></div>
+        <div><dt>Impuesto causado</dt><dd>${moneda(s.impuestoCausado)}</dd></div>
+        <div><dt>Impuesto a pagar / a favor</dt><dd>${s.impuestoAFavor ? `${moneda(s.impuestoAFavor)} a favor` : moneda(s.impuestoAPagar)}</dd></div>
+        <div><dt>Estimado para el año siguiente</dt><dd>${moneda(s.impuestoEstimado)}</dd></div>
+        <div><dt>Partidas (jun, sep, dic)</dt><dd>${s.partidas.map(moneda).join(' · ')}</dd></div>
+        <div><dt>Impuesto complementario</dt><dd>${moneda(s.impuestoComplementario)}</dd></div>
+        <div><dt>Aviso de operación</dt><dd>${moneda(s.avisoOperacion)}</dd></div>
+        <div><dt>Ingresos exentos o extranjeros</dt><dd>${moneda(s.ingresosExentosYExtranjeros)}</dd></div>
+        <div><dt>Costos y gastos excluidos</dt><dd>${moneda(s.costosExentosYExtranjeros + s.gastosExcluidos)}</dd></div>
+      </dl>
+      ${d.avisos.map((a) => `<p class="aviso">${escapar(a)}</p>`).join('')}`;
+    $('resumenDeclaracion').classList.remove('oculto');
+    estado.textContent = `Leí ${Object.keys(d.renglones).length} renglones de "${archivo.name}" y llené los datos de abajo.`;
+    estado.className = 'estado ok';
+  } catch (err) {
+    declaracion = null;
+    $('resumenDeclaracion').classList.add('oculto');
+    estado.textContent = err.message;
+    estado.className = 'estado error';
+  }
+});
+
 const dinero = (id) => aNumero($(id).value);
 const dineroOpcional = (id) => ($(id).value.trim() ? aNumero($(id).value) : undefined);
 
@@ -100,6 +162,7 @@ $('calcular').addEventListener('click', () => {
     saldoAFavor: dinero('saldoAFavor'),
     arrastrePerdidas: dinero('arrastrePerdidas'),
     noAplicarCAIR: $('noAplicarCAIR').checked,
+    tarifa: Number($('tarifa').value || 25) / 100,
   };
   const ajustes = Object.fromEntries(['ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
   ajustes.interesesExentos = $('interesesExentos').checked;
@@ -107,8 +170,8 @@ $('calcular').addEventListener('click', () => {
   const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
   const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 3, plan: plan() });
   const cuadre = cuadrar(leerTotalesReportados(hojas, nombre), escenarios[0].resultado);
-  ultimo = { anterior, ajustes, ...opciones, plan: $('plan').value, escenarios, cuadre };
-  mostrar(escenarios, cuadre);
+  ultimo = { anterior, ajustes, ...opciones, plan: $('plan').value, escenarios, cuadre, declaracionAnterior: declaracion?.resumen };
+  mostrar(escenarios, cuadre, declaracion?.resumen);
 });
 
 // Compara los totales del balance general y del estado de resultados con lo que da el balance de prueba.
@@ -129,7 +192,7 @@ $('plan').addEventListener('change', () => {
   }
 });
 
-function mostrar(escenarios, cuadre = []) {
+function mostrar(escenarios, cuadre = [], anteriorDeclarado = null) {
   const actual = escenarios[0].resultado.liquidacion;
   const cierre = escenarios[escenarios.length - 1];
   const neto = (l) => l.saldoAPagar || -l.saldoAFavor;
@@ -159,6 +222,7 @@ function mostrar(escenarios, cuadre = []) {
     <h3>Notas del cálculo</h3>
     <ul>
       ${cuadre.map((c) => `<li class="${c.cuadra ? 'ok' : 'error'}">${c.nombre}: ${c.cuadra ? 'cuadra' : 'NO cuadra'} con la hoja "${escapar(c.hoja)}" (${balboas(c.reportado)} reportado, ${balboas(c.calculado)} según el balance de prueba).</li>`).join('')}
+      ${anteriorDeclarado ? `<li>Comparado con lo declarado el año anterior: ingresos gravables ${balboas(anteriorDeclarado.ingresosGravables)} contra ${balboas(cr.ingresos.ingresosGravables)} proyectados; impuesto causado ${balboas(anteriorDeclarado.impuestoCausado)} contra ${balboas(cr.liquidacion.impuestoCausado)}.</li>` : ''}
       <li>Método al corte: ${r.renta.metodo === 'CAIR' ? 'CAIR, porque el 4,67 % de los ingresos supera la renta normal' : 'normal'}${r.renta.aplicaCAIR ? '' : ' (los ingresos gravables no superan B/. 1.500.000, el CAIR no aplica)'}.
         ${cr.renta.metodo !== r.renta.metodo ? ` Al cierre cambia a ${cr.renta.metodo}.` : ''}</li>
       <li>Partidas del impuesto estimado vencidas al corte: ${r.liquidacion.partidasVencidas} de 3.</li>
@@ -209,7 +273,7 @@ $('tablaHistorial').addEventListener('click', async (e) => {
       $('ruc').value = calculo.ruc;
       ultimo = null;
       $('guardar').classList.add('oculto');
-      mostrar(calculo.datos.escenarios, calculo.datos.cuadre);
+      mostrar(calculo.datos.escenarios, calculo.datos.cuadre, calculo.datos.declaracionAnterior);
     } else if (borrar && confirm('¿Borrar este cálculo del historial?')) {
       await api(`/api/calculos/${borrar}`, { method: 'DELETE' });
       await cargarHistorial();

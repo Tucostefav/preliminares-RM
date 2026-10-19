@@ -49,11 +49,16 @@
 
     <section class="tarjeta">
       <h2>3. Declaración de renta 2025</h2>
+      <p class="ayuda">Sube el PDF de la declaración presentada en e-Tax y los datos se llenan solos. Puedes corregirlos a mano.</p>
+      <input type="file" id="archivoDeclaracion" accept=".pdf">
+      <p id="estadoDeclaracion" class="estado"></p>
+      <div id="resumenDeclaracion" class="declaracion oculto"></div>
       <div class="rejilla">
         <label>Impuesto estimado declarado para 2026 <input class="dinero" id="impuestoEstimado"></label>
         <label>Estimado pagado a la fecha <input class="dinero" id="estimadoPagado" placeholder="Vacío: se calcula por partidas vencidas"></label>
         <label>Saldo a favor de 2025 <input class="dinero" id="saldoAFavor"></label>
         <label>Arrastre de pérdidas disponible en 2026 <input class="dinero" id="arrastrePerdidas" placeholder="Suma de las cuotas del 20 %"></label>
+        <label>Tarifa del impuesto (%) <input id="tarifa" type="number" step="0.5" value="25"></label>
         <label class="casilla"><input type="checkbox" id="noAplicarCAIR"> La DGI autorizó no aplicar el CAIR</label>
       </div>
     </section>
