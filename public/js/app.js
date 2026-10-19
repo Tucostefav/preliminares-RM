@@ -52,8 +52,8 @@ const FILAS = [
   ['Impuesto estimado pagado', (r) => r.liquidacion.estimadoPagado],
   ['Retenciones y créditos', (r) => r.liquidacion.retenciones],
   ['Saldo a favor del año anterior', (r) => r.liquidacion.saldoAFavorAnterior],
-  ['Impuesto por pagar si el año cerrara ese mes', (r) => r.liquidacion.saldoAPagar, 'destacado'],
-  ['Saldo a favor si el año cerrara ese mes', (r) => r.liquidacion.saldoAFavor, 'total'],
+  ['Impuesto por pagar', (r) => r.liquidacion.saldoAPagar, 'destacado'],
+  ['Saldo a favor', (r) => r.liquidacion.saldoAFavor, 'total'],
   ['Otros tributos a prever', null],
   ['Impuesto complementario (10 % sobre el 40 % de la utilidad)', (r) => r.otros.impuestoComplementario],
   ['Impuesto de aviso de operación (2 % del patrimonio)', (r) => r.otros.avisoOperacion],
@@ -174,11 +174,11 @@ $('calcular').addEventListener('click', () => {
   ajustes.interesesExentos = $('interesesExentos').checked;
   const opciones = { mesCorte: Number($('mesCorte').value), crecimiento: Number($('crecimiento').value || 0) / 100 };
   const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
-  const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 3, plan: plan() });
+  const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 12 - opciones.mesCorte, plan: plan() });
   const cuadre = cuadrar(leerTotalesReportados(hojas, nombre), escenarios[0].resultado);
   const anio = declaracion?.periodo ? declaracion.periodo + 1 : new Date().getFullYear();
   ultimo = { anterior, ajustes, ...opciones, anio, plan: $('plan').value, escenarios, cuadre, declaracionAnterior: declaracion?.resumen };
-  mostrar(escenarios, cuadre, declaracion?.resumen, { anio, mesCorte: opciones.mesCorte, anterior });
+  mostrar(escenarios, cuadre, declaracion?.resumen, { anio, mesCorte: opciones.mesCorte, crecimiento: opciones.crecimiento, anterior });
 });
 
 // Compara los totales del balance general y del estado de resultados con lo que da el balance de prueba.
@@ -231,12 +231,44 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
     : '<p class="ayuda">El calendario de pagos se arma cuando la proyección llega a diciembre.</p>';
   $('cair').innerHTML = `<h3>¿Le aplica el CAIR?</h3><p class="cair-${cair.nivel}">${escapar(cair.conclusion)}</p>`;
 
-  const cab = `<thead><tr><th>Concepto</th>${escenarios.map((e) => `<th>${e.mes}<small>${e.tipo}</small></th>`).join('')}</tr></thead>`;
+  // Solo dos columnas: lo real al corte (si declarara hoy) y lo proyectado al 31 de diciembre.
+  const corte = escenarios[0];
+  const columnas = [
+    { titulo: `Al corte, ene–${corte.mes.slice(0, 3).toLowerCase()}`, sub: 'real, si declarara hoy', resultado: corte.resultado },
+    ...(escenarios.length > 1 ? [{ titulo: `Al cierre, ene–${cierre.mes.slice(0, 3).toLowerCase()}`, sub: 'proyectado', resultado: cierre.resultado }] : []),
+  ];
+  const cab = `<thead><tr><th>Concepto</th>${columnas.map((c) => `<th>${c.titulo}<small>${c.sub}</small></th>`).join('')}</tr></thead>`;
   const cuerpo = FILAS.map(([nombre, f, clase]) =>
     f
-      ? `<tr class="${clase || ''}"><td>${nombre}</td>${escenarios.map((e) => `<td>${balboas(f(e.resultado))}</td>`).join('')}</tr>`
-      : `<tr class="seccion"><td colspan="${escenarios.length + 1}">${nombre}</td></tr>`,
+      ? `<tr class="${clase || ''}"><td>${nombre}</td>${columnas.map((c) => `<td>${balboas(f(c.resultado))}</td>`).join('')}</tr>`
+      : `<tr class="seccion"><td colspan="${columnas.length + 1}">${nombre}</td></tr>`,
   ).join('');
+
+  // Base de la proyección: promedio mensual de los meses reales y lo que se suma por cada mes que falta.
+  const mesesReales = mesCorte;
+  const mesesFaltan = escenarios.length - 1;
+  const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const lineas = [
+    ['Ingresos gravables', (r) => r.ingresos.ingresosGravables],
+    ['Costos', (r) => r.costosGastos.costos],
+    ['Gastos deducibles', (r) => r.costosGastos.totalDeducibles - r.costosGastos.costos],
+    ['Renta neta gravable', (r) => r.renta.rentaNetaGravable, 'total'],
+  ];
+  $('base').innerHTML = mesesFaltan
+    ? `<h3>Base de la proyección</h3>
+      <p class="ayuda">Cada mes que falta se proyecta con el promedio mensual de enero a ${corte.mes.toLowerCase()}${contexto.crecimiento ? `, ajustado ${(contexto.crecimiento * 100).toFixed(1)} %` : ''}.</p>
+      <div class="tabla-contenedor"><table>
+        <thead><tr><th>Concepto</th><th>Real ene–${MESES_CORTOS[mesCorte - 1]}</th><th>Promedio mensual</th>
+          ${MESES_CORTOS.slice(mesCorte, mesCorte + mesesFaltan).map((m) => `<th>${m}<small>proyectado</small></th>`).join('')}<th>Total año</th></tr></thead>
+        <tbody>${lineas.map(([nombre, f, clase]) => {
+          const real = f(corte.resultado);
+          const total = f(cierre.resultado);
+          const porMes = (total - real) / mesesFaltan;
+          return `<tr class="${clase || ''}"><td>${nombre}</td><td>${balboas(real)}</td><td>${balboas(real / mesesReales)}</td>
+            ${Array.from({ length: mesesFaltan }, () => `<td>${balboas(porMes)}</td>`).join('')}<td>${balboas(total)}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`
+    : '';
   $('tabla').innerHTML = cab + `<tbody>${cuerpo}</tbody>`;
 
   const r = escenarios[0].resultado;
@@ -249,7 +281,7 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
       <li>Partidas del impuesto estimado vencidas al corte: ${r.liquidacion.partidasVencidas} de 3.</li>
       ${r.noDeducibles.length ? `<li>Gastos excluidos por no deducibles: ${r.noDeducibles.map((n) => `${n.codigo} ${n.nombre} (${balboas(n.monto)})`).join('; ')}.</li>` : ''}
       <li>El impuesto complementario y el de aviso de operación se muestran aparte en la tabla; no se suman al impuesto sobre la renta, pero sí están en el calendario.</li>
-      <li>La proyección extiende ingresos, costos, gastos y ajustes con el promedio mensual del acumulado; las cuentas de balance se dejan como están al corte.</li>
+      <li>La proyección suma, por cada mes que falta, el promedio mensual de los meses reales en ingresos, costos, gastos y ajustes; las cuentas de balance se dejan como están al corte.</li>
       <li>Es un cálculo preliminar para planeación y no reemplaza la declaración jurada definitiva.</li>
     </ul>`;
   if ($('guardar').dataset.disponible && ultimo) {
@@ -295,7 +327,7 @@ $('tablaHistorial').addEventListener('click', async (e) => {
       ultimo = null;
       $('guardar').classList.add('oculto');
       mostrar(calculo.datos.escenarios, calculo.datos.cuadre, calculo.datos.declaracionAnterior, {
-        anio: calculo.datos.anio || calculo.anio, mesCorte: calculo.datos.mesCorte, anterior: calculo.datos.anterior,
+        anio: calculo.datos.anio || calculo.anio, mesCorte: calculo.datos.mesCorte, crecimiento: calculo.datos.crecimiento, anterior: calculo.datos.anterior,
       });
     } else if (borrar && confirm('¿Borrar este cálculo del historial?')) {
       await api(`/api/calculos/${borrar}`, { method: 'DELETE' });
