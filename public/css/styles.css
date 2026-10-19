@@ -56,3 +56,6 @@ label.casilla { flex-direction: row; align-items: center; gap: 8px; align-self: 
 .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
 #tablaHistorial button { margin: 0; padding: 4px 10px; font-size: 13px; }
 #tablaHistorial td:nth-child(2), #tablaHistorial td:last-child { white-space: nowrap; }
+.resumen small { display: block; font-size: 13px; color: var(--suave); }
+.notas li.ok { color: var(--ok); }
+.notas li.error { color: var(--error); font-weight: 600; }

@@ -12,7 +12,7 @@
   <header>
     <h1>Renta preliminar</h1>
     <p>Cómo quedaría la declaración de renta del cliente si se presentara hoy, y cómo cierra el año.
-       Los archivos se leen en este navegador y no se envían a ningún servidor.</p>
+       El balance se lee en este navegador; solo se guarda lo que pongas en el historial.</p>
   </header>
 
   <main>
@@ -30,9 +30,9 @@
         <label>Crecimiento mensual esperado (%) <input id="crecimiento" type="number" step="0.1" value="0"></label>
         <label>Plan de cuentas
           <select id="plan">
-            <option value="4i5c6g" selected>4 ingresos, 5 costos, 6 gastos</option>
-            <option value="4i5g6c">4 ingresos, 5 gastos, 6 costos</option>
-            <option value="4i5cg">4 ingresos, 5 costos y gastos</option>
+            <option value="estandar" selected>4 ingresos, 5 costos, 6 a 8 gastos</option>
+            <option value="invertido">4 ingresos, 5 gastos, 6 costos</option>
+            <option value="unificado">4 ingresos, 5 costos y gastos</option>
           </select>
         </label>
       </div>
@@ -40,8 +40,9 @@
 
     <section class="tarjeta">
       <h2>2. Balance de prueba al corte</h2>
-      <p class="ayuda">Excel o CSV con código de cuenta, nombre y saldo final (o columnas débito y crédito).
-         El balance general y el estado de resultados sirven para cuadrar: el programa calcula desde el balance de prueba.</p>
+      <p class="ayuda">Excel o CSV con cuenta, nombre y saldo final (o columnas débito y crédito). Puede ser el
+         libro completo de QuickBooks: el programa busca la hoja del balance de prueba y, si el libro trae
+         también el balance general y el estado de resultados, cuadra los totales contra ellos.</p>
       <input type="file" id="archivoBalance" accept=".xlsx,.xls,.csv">
       <p id="estadoBalance" class="estado"></p>
     </section>
@@ -60,9 +61,11 @@
     <section class="tarjeta">
       <h2>4. Ajustes fiscales (opcional)</h2>
       <div class="rejilla">
-        <label>Ingresos exentos, no gravables o de fuente extranjera <input class="dinero" id="ingresosExentos"></label>
+        <label>Otros ingresos exentos, no gravables o de fuente extranjera <input class="dinero" id="ingresosExentos"></label>
+        <label>Costos y gastos de esos ingresos (no deducibles) <input class="dinero" id="costosGastosExentos"></label>
         <label>Otros gastos no deducibles <input class="dinero" id="otrosNoDeducibles"></label>
         <label>Retenciones y créditos al corte <input class="dinero" id="retenciones"></label>
+        <label class="casilla"><input type="checkbox" id="interesesExentos" checked> Los intereses ganados son exentos (depósitos en bancos locales)</label>
       </div>
       <button id="calcular">Calcular</button>
     </section>

@@ -3,7 +3,7 @@
 // los datos de la declaración del año anterior.
 
 import {
-  PARAMETROS_2026, PLANES_DE_CUENTAS, REGLAS_ACTIVO, REGLAS_INGRESO, REGLAS_GASTO, REGLAS_NO_DEDUCIBLES,
+  PARAMETROS_2026, PLANES_DE_CUENTAS, grupoDe, REGLAS_ACTIVO, REGLAS_INGRESO, REGLAS_GASTO, REGLAS_NO_DEDUCIBLES,
 } from './config.js';
 import { sinTildes } from './lector.js';
 
@@ -11,7 +11,7 @@ export const redondear = (v) => Math.round(v * 100) / 100;
 
 const primeraRegla = (reglas, nombre) => reglas.find((r) => r.patron.test(nombre));
 
-export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS['4i5c6g']) {
+export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS.estandar) {
   const conceptos = {};
   const detalle = {};
   const noDeducibles = [];
@@ -22,18 +22,18 @@ export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS['4i5c6g']) {
 
   for (const c of cuentas) {
     const nombre = sinTildes(c.nombre);
-    const grupo = c.codigo[0];
-    if (grupo === plan.activo) {
+    const grupo = grupoDe(plan, c.codigo);
+    if (grupo === 'activo') {
       sumar(primeraRegla(REGLAS_ACTIVO, nombre)?.concepto || 'otrosActivos', c, c.valor);
-    } else if (grupo === plan.pasivo) {
+    } else if (grupo === 'pasivo') {
       sumar('pasivos', c, c.valor);
-    } else if (grupo === plan.patrimonio) {
+    } else if (grupo === 'patrimonio') {
       sumar('patrimonioContable', c, c.valor);
-    } else if (grupo === plan.ingresos) {
+    } else if (grupo === 'ingresos') {
       const concepto = primeraRegla(REGLAS_INGRESO, nombre)?.concepto || 'ingresosOperacion';
       sumar(concepto, c, concepto === 'devoluciones' ? Math.abs(c.valor) : c.valor);
-    } else if (grupo === plan.costos || grupo === plan.gastos) {
-      let concepto = grupo === plan.costos || /costo/.test(nombre) ? 'costos' : 'gastosGenerales';
+    } else if (grupo === 'costos' || grupo === 'gastos') {
+      let concepto = grupo === 'costos' || /costo/.test(nombre) ? 'costos' : 'gastosGenerales';
       if (concepto === 'gastosGenerales') concepto = primeraRegla(REGLAS_GASTO, nombre)?.concepto || concepto;
       let valor = c.valor;
       const regla = primeraRegla(REGLAS_NO_DEDUCIBLES, nombre);
@@ -54,7 +54,7 @@ export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS['4i5c6g']) {
  * @param {object} anterior  datos de la declaración del año pasado
  *   impuestoEstimado (estimado declarado para este año), estimadoPagado (si se conoce el valor exacto),
  *   saldoAFavor, arrastrePerdidas (cuotas del 20 % disponibles este año), noAplicarCAIR
- * @param {object} ajustes  ingresosExentos, otrosNoDeducibles, retenciones
+ * @param {object} ajustes  ingresosExentos, interesesExentos, costosGastosExentos, otrosNoDeducibles, retenciones
  * @param {object} opciones  mes (1-12) al que corresponde la liquidación, plan de cuentas
  */
 export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan, p = PARAMETROS_2026 } = {}) {
@@ -78,7 +78,9 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const otrosIngresos = v('otrosIngresos');
   const ingresosBrutos = ingresosOperacion + ingresosFinancieros + otrosIngresos;
   const devoluciones = v('devoluciones');
-  const ingresosExentos = a('ingresosExentos'); // exentos, no gravables y de fuente extranjera
+  // Exentos, no gravables y de fuente extranjera. Los intereses de depósitos en bancos locales
+  // son exentos (art. 708 C.F.), así que se excluyen por defecto.
+  const ingresosExentos = a('ingresosExentos') + (ajustes.interesesExentos ? ingresosFinancieros : 0);
   const ingresosGravables = Math.max(0, ingresosBrutos - devoluciones - ingresosExentos);
 
   // Costos y gastos deducibles (sin los no deducibles detectados por nombre)
@@ -86,8 +88,10 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const gastosGenerales = Math.max(0, v('gastosGenerales') - a('otrosNoDeducibles'));
   const depreciacion = v('depreciacion');
   const gastosFinancieros = v('gastosFinancieros');
-  const totalDeducibles = costos + gastosGenerales + depreciacion + gastosFinancieros;
-  const totalNoDeducibles = (k.noDeducibles || 0) + Math.min(a('otrosNoDeducibles'), v('gastosGenerales'));
+  const costosGastosExentos = a('costosGastosExentos'); // atribuibles a ingresos exentos o extranjeros
+  const totalDeducibles = Math.max(0, costos + gastosGenerales + depreciacion + gastosFinancieros - costosGastosExentos);
+  const totalNoDeducibles = (k.noDeducibles || 0) + Math.min(a('otrosNoDeducibles'), v('gastosGenerales')) + costosGastosExentos;
+  const utilidadContable = ingresosBrutos - devoluciones - (costos + v('gastosGenerales') + depreciacion + gastosFinancieros + (k.noDeducibles || 0));
 
   // Renta
   const rentaNeta = ingresosGravables - totalDeducibles;
@@ -116,8 +120,8 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const impuestoEstimadoSiguiente = impuestoCausado;
 
   // Otros tributos que se preparan con la misma información
-  const utilidadDespuesImpuesto = Math.max(0, rentaGravable - impuestoCausado);
-  const impuestoComplementario = utilidadDespuesImpuesto * p.tarifaComplementario;
+  const utilidadDespuesImpuesto = Math.max(0, rentaNetaGravable - arrastrePerdidas - impuestoCausado);
+  const impuestoComplementario = utilidadDespuesImpuesto * p.baseComplementario * p.tarifaComplementario;
   const avisoOperacion = Math.min(
     p.avisoOperacion.maximo,
     Math.max(p.avisoOperacion.minimo, Math.max(0, patrimonioNeto) * p.avisoOperacion.tarifa),
@@ -128,7 +132,7 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   return {
     patrimonio: todo({ ...activos, totalActivos, pasivos, patrimonioNeto }),
     ingresos: todo({ ingresosOperacion, ingresosFinancieros, otrosIngresos, ingresosBrutos, devoluciones, ingresosExentos, ingresosGravables }),
-    costosGastos: todo({ costos, gastosGenerales, depreciacion, gastosFinancieros, totalDeducibles, totalNoDeducibles }),
+    costosGastos: todo({ costos, gastosGenerales, depreciacion, gastosFinancieros, costosGastosExentos, totalDeducibles, totalNoDeducibles, utilidadContable }),
     renta: {
       ...todo({ rentaNetaGravable, perdida, arrastrePerdidas, rentaGravableNormal, rentaGravableCAIR, rentaGravable }),
       aplicaCAIR, metodo,

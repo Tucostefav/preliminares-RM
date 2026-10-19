@@ -13,27 +13,44 @@ export const PARAMETROS_2026 = {
   arrastreTopeRenta: 0.5,
   // Impuesto estimado del año siguiente: se paga en tres partidas (30 jun, 30 sep, 31 dic).
   mesesPartidasEstimado: [6, 9, 12],
-  // Impuesto complementario: 10 % de la utilidad después del impuesto sobre la renta, abono al
-  // impuesto de dividendos. Se muestra aparte porque no se suma al saldo de la declaración.
+  // Impuesto complementario: 10 % sobre el 40 % de la renta neta gravable después del impuesto
+  // (4 %), abono al impuesto de dividendos. Coincide con la declaración 2025 de HBSE.
+  // Se muestra aparte porque no se suma al saldo de la declaración.
   tarifaComplementario: 0.1,
+  baseComplementario: 0.4,
   // Impuesto de aviso de operación: 2 % del patrimonio, mínimo B/.100 y máximo B/.60.000.
   avisoOperacion: { tarifa: 0.02, minimo: 100, maximo: 60000 },
 };
 
-// Planes de cuentas usados en Panamá. No hay uno oficial, así que se elige cuál dígito inicial
+// Planes de cuentas usados en Panamá. No hay uno oficial, así que se elige qué dígito inicial
 // corresponde a cada grupo según el sistema contable del cliente.
 export const PLANES_DE_CUENTAS = {
-  '4i5c6g': { nombre: '4 ingresos, 5 costos, 6 gastos', activo: '1', pasivo: '2', patrimonio: '3', ingresos: '4', costos: '5', gastos: '6' },
-  '4i5g6c': { nombre: '4 ingresos, 5 gastos, 6 costos', activo: '1', pasivo: '2', patrimonio: '3', ingresos: '4', costos: '6', gastos: '5' },
-  '4i5cg': { nombre: '4 ingresos, 5 costos y gastos', activo: '1', pasivo: '2', patrimonio: '3', ingresos: '4', costos: null, gastos: '5' },
+  estandar: { nombre: '4 ingresos, 5 costos, 6 a 8 gastos', activo: ['1'], pasivo: ['2'], patrimonio: ['3'], ingresos: ['4'], costos: ['5'], gastos: ['6', '7', '8'] },
+  invertido: { nombre: '4 ingresos, 5 gastos, 6 costos', activo: ['1'], pasivo: ['2'], patrimonio: ['3'], ingresos: ['4'], costos: ['6'], gastos: ['5', '7', '8'] },
+  unificado: { nombre: '4 ingresos, 5 costos y gastos', activo: ['1'], pasivo: ['2'], patrimonio: ['3'], ingresos: ['4'], costos: [], gastos: ['5', '6', '7', '8'] },
 };
+
+export function grupoDe(plan, codigo) {
+  const digito = String(codigo)[0];
+  return ['activo', 'pasivo', 'patrimonio', 'ingresos', 'costos', 'gastos'].find((g) => plan[g].includes(digito)) || null;
+}
+
+// Grupo de las cuentas que llegan sin código (QuickBooks usa "Sales", "Retained Earnings", etc.).
+export const GRUPO_POR_NOMBRE = [
+  { patron: /(costo|cost of|coste)/, grupo: 'costos' },
+  { patron: /(sales|ventas?|ingreso|income|revenue)/, grupo: 'ingresos' },
+  { patron: /(retained|utilidad|ganancia|superavit|capital|patrimonio|equity|net income)/, grupo: 'patrimonio' },
+  { patron: /(vat|itbms|por pagar|payable|pasivo|prestamo)/, grupo: 'pasivo' },
+  { patron: /(inventario|activo|banco|caja|cobrar|receivable)/, grupo: 'activo' },
+  { patron: /(gasto|expense)/, grupo: 'gastos' },
+];
 
 // Clasificación por nombre de cuenta. Gana la primera regla que coincida dentro del grupo.
 export const REGLAS_ACTIVO = [
   { patron: /(caja|banco|efectivo|equivalente)/, concepto: 'efectivo' },
   { patron: /(inversion|plazo fijo|acciones)/, concepto: 'inversiones' },
-  { patron: /(impuesto estimado|isr pagado|anticipo.*renta|renta.*anticipad|credito fiscal.*renta|retencion.*renta)/, concepto: 'impuestoEstimadoPagado' },
-  { patron: /(cuentas? por cobrar|clientes|deudores|documentos por cobrar|prestamos? por cobrar|cxc)/, concepto: 'cuentasPorCobrar' },
+  { patron: /(impuesto estimado|isr pagado|anticipo.*renta|renta.*anticipad|renta.*estimad|credito fiscal.*renta|retencion.*renta)/, concepto: 'impuestoEstimadoPagado' },
+  { patron: /(cuentas? por cobrar|clientes|deudores|documentos por cobrar|prestamos? por cobrar|cxc|cuentas malas|incobrable)/, concepto: 'cuentasPorCobrar' },
   { patron: /(inventario|mercancia|materia prima|productos? terminados?)/, concepto: 'inventarios' },
   { patron: /(propiedad|planta|equipo|mobiliario|vehiculo|edificio|terreno|mejoras|depreciacion)/, concepto: 'propiedadesPlantaEquipo' },
   { patron: /(intangible|plusvalia|licencia|software|marca|amortizacion)/, concepto: 'intangibles' },

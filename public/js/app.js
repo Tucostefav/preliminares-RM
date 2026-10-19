@@ -1,11 +1,11 @@
-import { leerBalanceDePrueba, aNumero } from './lector.js';
+import { buscarHojaBalance, leerTotalesReportados, aNumero } from './lector.js';
 import { proyectar } from './proyeccion.js';
 import { PLANES_DE_CUENTAS } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const balboas = (v) => `B/. ${numero.format(v)}`;
-let filas = null;
+let hojas = null; // hojas del libro cargado: [{ nombre, filas }]
 let ultimo = null; // último cálculo mostrado, para guardarlo en el historial
 
 const FILAS = [
@@ -34,6 +34,7 @@ const FILAS = [
   ['Gastos generales y administrativos', (r) => r.costosGastos.gastosGenerales],
   ['Depreciación y amortización', (r) => r.costosGastos.depreciacion],
   ['Gastos financieros', (r) => r.costosGastos.gastosFinancieros],
+  ['Menos: costos y gastos de ingresos exentos o extranjeros', (r) => r.costosGastos.costosGastosExentos],
   ['Total costos y gastos deducibles', (r) => r.costosGastos.totalDeducibles, 'total'],
   ['Gastos no deducibles (excluidos)', (r) => r.costosGastos.totalNoDeducibles],
   ['Renta gravable', null],
@@ -53,7 +54,7 @@ const FILAS = [
   ['Impuesto estimado para 2027', (r) => r.liquidacion.impuestoEstimadoSiguiente],
   ['Cada partida del estimado (jun, sep, dic)', (r) => r.liquidacion.partidaEstimadoSiguiente],
   ['Otros tributos a prever', null],
-  ['Impuesto complementario (10 %)', (r) => r.otros.impuestoComplementario],
+  ['Impuesto complementario (10 % sobre el 40 % de la utilidad)', (r) => r.otros.impuestoComplementario],
   ['Impuesto de aviso de operación (2 % del patrimonio)', (r) => r.otros.avisoOperacion],
 ];
 
@@ -78,10 +79,12 @@ $('archivoBalance').addEventListener('change', async (e) => {
   if (!archivo) return;
   try {
     const libro = await leerLibro(archivo);
-    filas = XLSX.utils.sheet_to_json(libro.Sheets[libro.SheetNames[0]], { header: 1, defval: '' });
-    mostrarEstado(`Leí ${leerBalanceDePrueba(filas, plan()).length} cuentas auxiliares de "${archivo.name}".`, true);
+    hojas = libro.SheetNames.map((nombre) => ({ nombre, filas: XLSX.utils.sheet_to_json(libro.Sheets[nombre], { header: 1, defval: '' }) }));
+    const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
+    const otras = hojas.length > 1 ? ` (hoja "${nombre}")` : '';
+    mostrarEstado(`Leí ${cuentas.length} cuentas del balance de prueba de "${archivo.name}"${otras}.`, true);
   } catch (err) {
-    filas = null;
+    hojas = null;
     mostrarEstado(err.message, false);
   }
 });
@@ -90,7 +93,7 @@ const dinero = (id) => aNumero($(id).value);
 const dineroOpcional = (id) => ($(id).value.trim() ? aNumero($(id).value) : undefined);
 
 $('calcular').addEventListener('click', () => {
-  if (!filas) return mostrarEstado('Primero carga el balance de prueba.', false);
+  if (!hojas) return mostrarEstado('Primero carga el balance de prueba.', false);
   const anterior = {
     impuestoEstimado: dineroOpcional('impuestoEstimado'),
     estimadoPagado: dineroOpcional('estimadoPagado'),
@@ -98,25 +101,49 @@ $('calcular').addEventListener('click', () => {
     arrastrePerdidas: dinero('arrastrePerdidas'),
     noAplicarCAIR: $('noAplicarCAIR').checked,
   };
-  const ajustes = Object.fromEntries(['ingresosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
+  const ajustes = Object.fromEntries(['ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
+  ajustes.interesesExentos = $('interesesExentos').checked;
   const opciones = { mesCorte: Number($('mesCorte').value), crecimiento: Number($('crecimiento').value || 0) / 100 };
-  const escenarios = proyectar(leerBalanceDePrueba(filas, plan()), anterior, ajustes, { ...opciones, mesesAProyectar: 3, plan: plan() });
-  ultimo = { anterior, ajustes, ...opciones, plan: $('plan').value, escenarios };
-  mostrar(escenarios);
+  const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
+  const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 3, plan: plan() });
+  const cuadre = cuadrar(leerTotalesReportados(hojas, nombre), escenarios[0].resultado);
+  ultimo = { anterior, ajustes, ...opciones, plan: $('plan').value, escenarios, cuadre };
+  mostrar(escenarios, cuadre);
 });
 
-function mostrar(escenarios) {
+// Compara los totales del balance general y del estado de resultados con lo que da el balance de prueba.
+function cuadrar(reportados, r) {
+  const calculados = { totalActivos: r.patrimonio.totalActivos, utilidadContable: r.costosGastos.utilidadContable };
+  const nombres = { totalActivos: 'Total de activos', utilidadContable: 'Utilidad neta' };
+  return Object.entries(reportados).map(([clave, { valor, hoja }]) => ({
+    nombre: nombres[clave], hoja, reportado: valor, calculado: calculados[clave], cuadra: Math.abs(valor - calculados[clave]) < 1,
+  }));
+}
+
+$('plan').addEventListener('change', () => {
+  if (!hojas) return;
+  try {
+    mostrarEstado(`Leí ${buscarHojaBalance(hojas, plan()).cuentas.length} cuentas del balance de prueba.`, true);
+  } catch (err) {
+    mostrarEstado(err.message, false);
+  }
+});
+
+function mostrar(escenarios, cuadre = []) {
   const actual = escenarios[0].resultado.liquidacion;
   const cierre = escenarios[escenarios.length - 1];
   const neto = (l) => l.saldoAPagar || -l.saldoAFavor;
   const mesesRestantes = escenarios.length - 1;
-  // Lo que sale de caja desde hoy: partidas del estimado que faltan más el saldo de la declaración.
-  const pendiente = cierre.resultado.liquidacion.saldoAPagar + (cierre.resultado.liquidacion.estimadoPagado - actual.estimadoPagado);
+  // Lo que el cliente tiene que pagar desde hoy: partidas del estimado que faltan, el saldo de la
+  // declaración y los tributos que se pagan con ella (complementario y aviso de operación).
+  const lc = cierre.resultado.liquidacion;
+  const pendiente = lc.saldoAPagar + (lc.estimadoPagado - actual.estimadoPagado) + cierre.resultado.otros.impuestoComplementario + cierre.resultado.otros.avisoOperacion;
 
   $('resumen').innerHTML = `
-    <div><span>Si declarara hoy (corte ${escenarios[0].mes.toLowerCase()})</span><strong>${balboas(neto(actual))}</strong></div>
-    <div><span>Proyección al cierre (${cierre.mes.toLowerCase()})</span><strong>${balboas(neto(cierre.resultado.liquidacion))}</strong></div>
-    <div><span>Reserva mensual sugerida (partidas pendientes del estimado más saldo final)</span><strong>${balboas(mesesRestantes ? pendiente / mesesRestantes : pendiente)}</strong></div>`;
+    <div><span>ISR si declarara hoy (corte ${escenarios[0].mes.toLowerCase()})</span><strong>${balboas(Math.abs(neto(actual)))}</strong><small>${neto(actual) < 0 ? 'a favor' : 'por pagar'}</small></div>
+    <div><span>ISR proyectado al cierre (${cierre.mes.toLowerCase()})</span><strong>${balboas(Math.abs(neto(lc)))}</strong><small>${neto(lc) < 0 ? 'a favor' : 'por pagar'}</small></div>
+    <div><span>Total a preparar: partidas pendientes, saldo, complementario y aviso de operación</span><strong>${balboas(pendiente)}</strong>
+      <small>${mesesRestantes ? `${balboas(pendiente / mesesRestantes)} por mes hasta ${cierre.mes.toLowerCase()}` : ''}</small></div>`;
 
   const cab = `<thead><tr><th>Concepto</th>${escenarios.map((e) => `<th>${e.mes}<small>${e.tipo}</small></th>`).join('')}</tr></thead>`;
   const cuerpo = FILAS.map(([nombre, f, clase]) =>
@@ -131,12 +158,13 @@ function mostrar(escenarios) {
   $('notas').innerHTML = `
     <h3>Notas del cálculo</h3>
     <ul>
+      ${cuadre.map((c) => `<li class="${c.cuadra ? 'ok' : 'error'}">${c.nombre}: ${c.cuadra ? 'cuadra' : 'NO cuadra'} con la hoja "${escapar(c.hoja)}" (${balboas(c.reportado)} reportado, ${balboas(c.calculado)} según el balance de prueba).</li>`).join('')}
       <li>Método al corte: ${r.renta.metodo === 'CAIR' ? 'CAIR, porque el 4,67 % de los ingresos supera la renta normal' : 'normal'}${r.renta.aplicaCAIR ? '' : ' (los ingresos gravables no superan B/. 1.500.000, el CAIR no aplica)'}.
         ${cr.renta.metodo !== r.renta.metodo ? ` Al cierre cambia a ${cr.renta.metodo}.` : ''}</li>
       <li>Partidas del impuesto estimado vencidas al corte: ${r.liquidacion.partidasVencidas} de 3.</li>
       ${r.noDeducibles.length ? `<li>Gastos excluidos por no deducibles: ${r.noDeducibles.map((n) => `${n.codigo} ${n.nombre} (${balboas(n.monto)})`).join('; ')}.</li>` : ''}
       <li>El impuesto complementario y el de aviso de operación se muestran aparte; no se suman al impuesto por pagar de la declaración.</li>
-      <li>La proyección extiende ingresos, costos, gastos y retenciones con el promedio mensual del acumulado; las cuentas de balance se dejan como están al corte.</li>
+      <li>La proyección extiende ingresos, costos, gastos y ajustes con el promedio mensual del acumulado; las cuentas de balance se dejan como están al corte.</li>
       <li>Es un cálculo preliminar para planeación y no reemplaza la declaración jurada definitiva.</li>
     </ul>`;
   if ($('guardar').dataset.disponible && ultimo) {
@@ -181,7 +209,7 @@ $('tablaHistorial').addEventListener('click', async (e) => {
       $('ruc').value = calculo.ruc;
       ultimo = null;
       $('guardar').classList.add('oculto');
-      mostrar(calculo.datos.escenarios);
+      mostrar(calculo.datos.escenarios, calculo.datos.cuadre);
     } else if (borrar && confirm('¿Borrar este cálculo del historial?')) {
       await api(`/api/calculos/${borrar}`, { method: 'DELETE' });
       await cargarHistorial();

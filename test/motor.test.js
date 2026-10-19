@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leerBalanceDePrueba, aNumero } from '../public/js/lector.js';
+import { leerBalanceDePrueba, aNumero, buscarHojaBalance, leerTotalesReportados } from '../public/js/lector.js';
 import { liquidar } from '../public/js/motor.js';
 import { proyectar } from '../public/js/proyeccion.js';
 
@@ -49,7 +49,7 @@ test('liquida la renta al corte de septiembre', () => {
   assert.equal(r.liquidacion.partidasVencidas, 2);
   assert.equal(r.liquidacion.estimadoPagado, 80000);
   assert.equal(r.liquidacion.saldoAPagar, 60000);
-  assert.equal(r.otros.impuestoComplementario, 42000);
+  assert.equal(r.otros.impuestoComplementario, 16800); // 10 % sobre el 40 % de (560.000 - 140.000)
   assert.equal(r.otros.avisoOperacion, 9800);
 });
 
@@ -80,4 +80,55 @@ test('proyecta octubre, noviembre y diciembre', () => {
   assert.equal(dic.renta.rentaGravable, 746666.67);
   assert.equal(dic.liquidacion.estimadoPagado, 120000);
   assert.equal(dic.liquidacion.saldoAPagar, 66666.67);
+});
+
+// Formato de QuickBooks: código y nombre en una columna, cuentas sin código, subcuentas con punto
+// que no son niveles agrupados y tres pares Débito/Crédito (se usa el saldo ajustado).
+const quickbooks = [
+  ['EMPRESA QB, S.A.'],
+  ['Adjusted Trial Balance'],
+  ['A partir de 30 sep., 2026'],
+  [],
+  ['', 'Nombre de la cuenta', 'Saldo sin ajustar', '', 'Ajustes', '', 'Saldo ajustado', ''],
+  ['', '', 'Débito', 'Crédito', 'Débito', 'Crédito', 'Débito', 'Crédito'],
+  ['', '1000 Banco General', 1000, '', '', '', 1000, ''],
+  ['', '1104 Reserva de cuentas malas', '', 100, '', '', '', 100],
+  ['', '1100 Cuentas por cobrar clientes', 5000, '', '', '', 5000, ''],
+  ['', '1612 Renta Juridica Estimada', 900, '', '', '', 900, ''],
+  ['', '2001 Cuentas por pagar Proveedores', '', 3000, '', '', '', 3000],
+  ['', '2001.1 Descuento por pagar', '', 200, '', '', '', 200],
+  ['', 'VAT Control', 300, '', '', '', 300, ''],
+  ['', '3000 Capital Social', '', 1000, '', '', '', 1000],
+  ['', 'Retained Earnings', '', 1900, '', '', '', 1900],
+  ['', 'Sales', '', 10000, '', '', '', 10000],
+  ['', '4101 Ingresos por Intereses', '', 50, '', '', '', 50],
+  ['', 'Costo de las ventas', 7000, '', '', '', 7000, ''],
+  ['', '6000 Gasto de Salario', 1000, '', '', '', 1000, ''],
+  ['', '8001 Servicios Adm y Contables', 750, '', '', '', 750, ''],
+  ['', '6203 Cargos Bancarios', 100, '', '', '', 100, ''],
+  ['', '', 16050, 16050, 0, 0, 16050, 16050],
+];
+
+test('lee un balance de prueba exportado de QuickBooks', () => {
+  const hojas = [
+    { nombre: 'Resultados', filas: [['Ganancias netas', '', 1200]] },
+    { nombre: 'Balance', filas: [['Total para Activos', 6800]] },
+    { nombre: 'Prueba', filas: quickbooks },
+  ];
+  const { nombre, cuentas: qb } = buscarHojaBalance(hojas);
+  assert.equal(nombre, 'Prueba');
+  assert.ok(qb.some((c) => c.codigo === '2001') && qb.some((c) => c.codigo === '2001.1'), 'conserva 2001 y 2001.1');
+
+  const r = liquidar(qb, { impuestoEstimado: 1200 }, { interesesExentos: true }, { mes: 9 });
+  assert.equal(r.patrimonio.totalActivos, 6800);
+  assert.equal(r.patrimonio.impuestoEstimadoPagado, 900);
+  assert.equal(r.patrimonio.pasivos, 2900); // proveedores + descuento - ITBMS a favor
+  assert.equal(r.ingresos.ingresosGravables, 10000);
+  assert.equal(r.costosGastos.utilidadContable, 1200);
+  assert.equal(r.renta.rentaGravable, 1150);
+  assert.equal(r.costosGastos.gastosFinancieros, 100);
+
+  const reportados = leerTotalesReportados(hojas, nombre);
+  assert.equal(reportados.totalActivos.valor, 6800);
+  assert.equal(reportados.utilidadContable.valor, 1200);
 });

@@ -4,14 +4,14 @@
 // como están al corte.
 
 import { liquidar } from './motor.js';
-import { PLANES_DE_CUENTAS } from './config.js';
+import { PLANES_DE_CUENTAS, grupoDe } from './config.js';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 export function extenderCuentas(cuentas, plan, mesesCorte, mesesExtra, crecimiento = 0) {
-  const resultado = new Set([plan.ingresos, plan.costos, plan.gastos].filter(Boolean));
+  const resultado = new Set(['ingresos', 'costos', 'gastos']);
   return cuentas.map((c) => {
-    if (!resultado.has(c.codigo[0])) return c;
+    if (!resultado.has(grupoDe(plan, c.codigo))) return c;
     const promedio = c.valor / mesesCorte;
     return { ...c, valor: c.valor + promedio * (1 + crecimiento) * mesesExtra };
   });
@@ -22,12 +22,14 @@ export function extenderCuentas(cuentas, plan, mesesCorte, mesesExtra, crecimien
  * @param {number} mesCorte  último mes incluido en los archivos (9 = septiembre)
  * @param {number} crecimiento  variación mensual esperada frente al promedio (0.05 = +5 %)
  */
-export function proyectar(cuentas, anterior, ajustes, { mesCorte = 9, mesesAProyectar = 3, crecimiento = 0, plan = PLANES_DE_CUENTAS['4i5c6g'] } = {}) {
+export function proyectar(cuentas, anterior, ajustes, { mesCorte = 9, mesesAProyectar = 3, crecimiento = 0, plan = PLANES_DE_CUENTAS.estandar } = {}) {
   const escenarios = [{ mes: MESES[mesCorte - 1], tipo: 'real', resultado: liquidar(cuentas, anterior, ajustes, { mes: mesCorte, plan }) }];
   for (let i = 1; i <= mesesAProyectar && mesCorte + i <= 12; i++) {
     const extendidas = extenderCuentas(cuentas, plan, mesCorte, i, crecimiento);
-    // Las retenciones que se ingresan a mano se proyectan en la misma proporción.
-    const ajustesMes = { ...ajustes, retenciones: (ajustes.retenciones || 0) * (mesCorte + i) / mesCorte };
+    // Los ajustes que se ingresan a mano son acumulados al corte: se proyectan en la misma proporción.
+    const factor = (mesCorte + i) / mesCorte;
+    const ajustesMes = { ...ajustes };
+    for (const k of ['retenciones', 'ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles']) ajustesMes[k] = (ajustes[k] || 0) * factor;
     escenarios.push({
       mes: MESES[mesCorte - 1 + i],
       tipo: 'proyectado',
