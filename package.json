@@ -15,5 +15,8 @@
   "dependencies": {
     "express": "^4.21.2",
     "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "exceljs": "^4.4.0"
   }
 }

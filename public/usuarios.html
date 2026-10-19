@@ -44,6 +44,28 @@
       </div>
     </section>
 
+    <section id="firmaPanel" class="panel oculto">
+      <div class="panel-cab">
+        <h2>Datos de la firma</h2>
+        <p class="panel-sub">Van en el membrete de los informes en PDF y Excel.</p>
+      </div>
+      <form id="formFirma" class="form-firma" novalidate>
+        <div class="firma-campos">
+          <label class="campo">Nombre de la firma <input id="firmaNombre" maxlength="120" placeholder="ej. RM Contadores y Asesores"></label>
+          <label class="campo">Línea de contacto <input id="firmaDetalle" maxlength="240" placeholder="RUC · dirección · teléfono · correo"></label>
+          <p id="mensajeFirma" class="mensaje" role="status"></p>
+          <div><button class="boton-sec">Guardar datos de la firma</button></div>
+        </div>
+        <div class="firma-logo">
+          <span class="rotulo">Logo</span>
+          <div class="logo-vista" id="logoVista"><span>Sin logo</span></div>
+          <label class="boton-sec boton-archivo">Subir logo<input type="file" id="firmaLogo" accept="image/png,image/jpeg"></label>
+          <button type="button" class="enlace-boton" id="quitarLogo" hidden>Quitar logo</button>
+          <small>PNG o JPG, horizontal y con fondo blanco o transparente.</small>
+        </div>
+      </form>
+    </section>
+
     <section id="cuentaPanel" class="panel cuenta-panel oculto">
       <div class="panel-cab">
         <h2>Mi cuenta</h2>

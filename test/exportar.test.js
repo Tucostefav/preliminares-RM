@@ -1,16 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import ExcelJS from 'exceljs';
 import { leerBalanceDePrueba } from '../public/js/lector.js';
 import { proyectar } from '../public/js/proyeccion.js';
 import { calendarioDePagos, analizarCAIR } from '../public/js/calendario.js';
 import { libroDelPreliminar, nombreDeArchivo } from '../public/js/exportar.js';
-
-// SheetJS viene como script para el navegador; se carga igual que en la página, como global.
-const contexto = { Uint8Array, ArrayBuffer, Date, Math, Buffer, TextEncoder, TextDecoder };
-vm.runInNewContext(readFileSync(new URL('../public/vendor/xlsx.full.min.js', import.meta.url), 'utf8'), contexto);
-const XLSX = contexto.XLSX;
+import { informeHtml } from '../public/js/informe.js';
 
 const cuentas = leerBalanceDePrueba([
   ['Cuenta', 'Descripción', 'Saldo final'],
@@ -23,27 +18,50 @@ const cuentas = leerBalanceDePrueba([
   ['6101', 'Salarios', 230000],
 ]);
 
-test('exporta el preliminar a Excel con números y una hoja por sección', () => {
+function informe(extra = {}) {
   const anterior = { impuestoEstimado: 60000 };
   const escenarios = proyectar(cuentas, anterior, {}, { mesCorte: 9, mesesAProyectar: 3 });
   const cierre = escenarios.at(-1).resultado;
-  const libro = libroDelPreliminar(XLSX, {
+  return {
     escenarios,
     cal: calendarioDePagos(cierre, { anio: 2026, mesCorte: 9, anterior }),
     cair: analizarCAIR(cierre),
-    filas: [['Ingresos', null], ['Ingresos gravables', (r) => r.ingresos.ingresosGravables], ['Impuesto causado', (r) => r.liquidacion.impuestoCausado]],
+    filas: [['Ingresos', null], ['Ingresos gravables', (r) => r.ingresos.ingresosGravables, 'total'], ['Impuesto causado', (r) => r.liquidacion.impuestoCausado]],
     contexto: { anio: 2026, mesCorte: 9 },
     cliente: 'Empresa de Prueba, S.A.',
     ruc: '123-45-6789',
-  });
-  assert.deepEqual([...libro.SheetNames], ['Resumen', 'Declaración', 'Calendario de pagos', 'Base de la proyección', 'Cuentas']);
-  // La copia por XLSX.write/read comprueba que el archivo se genera y se puede abrir.
-  const leido = XLSX.read(XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' }));
-  const declaracion = XLSX.utils.sheet_to_json(leido.Sheets['Declaración'], { header: 1 });
-  const fila = declaracion.find((f) => f[0] === 'Ingresos gravables');
-  assert.equal(fila[1], 900000);
-  assert.equal(fila[2], 1200000); // proyectado a diciembre con el promedio
-  const calendario = XLSX.utils.sheet_to_json(leido.Sheets['Calendario de pagos'], { header: 1 });
-  assert.equal(typeof calendario[1][2], 'number');
+    usuario: 'Ana Gómez',
+    firma: { nombre: 'RM Contadores', detalle: 'Ciudad de Panamá', logo: null },
+    borrador: false,
+    ...extra,
+  };
+}
+
+test('exporta el preliminar a Excel con membrete, números y una hoja por sección', async () => {
+  const libro = libroDelPreliminar(ExcelJS, informe());
+  assert.deepEqual(libro.worksheets.map((h) => h.name), ['Resumen', 'Calendario', 'Determinación', 'Proyección', 'Cuentas']);
+  // Se escribe y se vuelve a leer para comprobar que el archivo abre.
+  const leido = new ExcelJS.Workbook();
+  await leido.xlsx.load(await libro.xlsx.writeBuffer());
+  const hoja = leido.getWorksheet('Determinación');
+  assert.equal(hoja.getCell('A1').value, 'RM Contadores');
+  assert.match(hoja.getCell('A4').value, /Empresa de Prueba, S\.A\..*123-45-6789/);
+  let fila = null;
+  hoja.eachRow((r) => { if (r.getCell(1).value === 'Ingresos gravables') fila = r; });
+  assert.equal(fila.getCell(2).value, 900000);
+  assert.equal(fila.getCell(3).value, 1200000); // proyectado a diciembre con el promedio
+  assert.ok(fila.getCell(2).font.bold, 'los totales van en negrita');
+  const calendario = leido.getWorksheet('Calendario');
+  assert.ok(calendario.getCell('A8').value instanceof Date);
+  assert.equal(typeof calendario.getCell('D8').value, 'number');
   assert.equal(nombreDeArchivo({ cliente: 'Á/B: S.A.', mesCorte: 9, anio: 2026 }), 'Preliminar AB S.A. septiembre 2026');
+});
+
+test('el informe PDF numera las secciones en orden y marca los borradores', () => {
+  const html = informeHtml(informe({ borrador: true }));
+  const numeros = [...html.matchAll(/<h2 class="inf-h2"><span>(\d+)\.<\/span> ([^<]+)<\/h2>/g)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(numeros.slice(0, 3), ['1 Resumen ejecutivo', '2 Calendario de obligaciones fiscales', '3 Determinación del impuesto sobre la renta']);
+  assert.match(html, /BORRADOR/);
+  assert.match(html, /Preparado por/);
+  assert.doesNotMatch(informeHtml(informe()), /inf-marca-agua/);
 });

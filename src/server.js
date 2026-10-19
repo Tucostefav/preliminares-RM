@@ -213,6 +213,26 @@ app.delete('/api/usuarios/:id', soloAdmin, conBase(async (req, res) => {
   res.status(204).end();
 }));
 
+// Datos de la firma para el membrete de los informes
+
+const FIRMA_INICIAL = { nombre: 'RM', detalle: '', logo: null };
+const LOGO = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+
+app.get('/api/firma', atrapar(async (_req, res) => {
+  res.json({ ...FIRMA_INICIAL, ...(db.baseLista() ? await db.leerAjuste('firma') : {}) });
+}));
+
+app.put('/api/firma', soloAdmin, conBase(async (req, res) => {
+  const nombre = String(req.body?.nombre || '').trim();
+  const detalle = String(req.body?.detalle || '').trim();
+  const logo = req.body?.logo || null;
+  if (!nombre || nombre.length > 120) return res.status(400).json({ error: 'Escribe el nombre de la firma (hasta 120 caracteres).' });
+  if (detalle.length > 240) return res.status(400).json({ error: 'La línea de contacto admite hasta 240 caracteres.' });
+  if (logo && (!LOGO.test(logo) || logo.length > 700_000)) return res.status(400).json({ error: 'El logo debe ser PNG o JPG de menos de 500 KB.' });
+  await db.guardarAjuste('firma', { nombre, detalle, logo });
+  res.json({ ok: true });
+}));
+
 // Preliminares: borradores y cálculos terminados
 
 const ESTADOS = ['borrador', 'terminado'];

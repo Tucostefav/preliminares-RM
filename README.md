@@ -33,9 +33,11 @@ preliminar (borrador o terminado), para poder retomarlo después.
 | `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
 | `public/vendor/pdfjs/` | pdf.js 4.10.38 (renombrado de .mjs a .js porque Hostinger no entrega .mjs) para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
-| `public/js/exportar.js` | Libro de Excel del preliminar |
+| `public/js/exportar.js` | Libro de Excel del preliminar con formato corporativo |
+| `public/js/informe.js` | Informe PDF (membrete, secciones numeradas, alcance y firmas) |
 | `public/login.html`, `public/usuarios.html` | Pantalla de entrada y administración de usuarios (`js/login.js`, `js/usuarios.js`, `js/sesion.js`) |
 | `public/vendor/xlsx.full.min.js` | SheetJS 0.18.5 para leer Excel (licencia Apache 2.0) |
+| `public/vendor/exceljs/` | ExcelJS 4.4.0 para escribir el Excel con formato; se carga solo al exportar (licencia MIT) |
 
 ## Correr en el computador
 
@@ -83,11 +85,19 @@ En producción la app no abre si no hay ni `APP_PASSWORD` ni usuarios en la base
 
 ## Exportar
 
-- **Excel** descarga un libro con las hojas Resumen, Declaración (al corte y al cierre), Calendario de
-  pagos, Base de la proyección y Cuentas (cada cuenta del balance con su clasificación). Los montos son
-  números con dos decimales, no texto, para seguir trabajando sobre ellos.
-- **PDF** abre la impresión del navegador con un formato de informe en tamaño carta; se elige "Guardar
-  como PDF". El nombre propuesto es `Preliminar <cliente> <mes> <año>`.
+Los dos informes llevan el membrete de la firma. Un administrador lo llena en **Usuarios → Datos de la
+firma**: nombre, una línea de contacto (dirección, teléfono, correo) y el logo en PNG o JPG. Sin datos,
+el membrete dice "RM".
+
+- **PDF** abre la impresión del navegador con un informe en tamaño carta: portada con membrete y datos
+  del cliente, resumen ejecutivo, calendario de obligaciones, determinación del impuesto, base de la
+  proyección, CAIR, conciliación, alcance y limitaciones y espacio para las firmas. El pie de cada
+  página dice "Confidencial", el cliente y "Página X de N". Mientras el preliminar no esté terminado (o
+  tenga cambios sin guardar) lleva la marca de agua BORRADOR. Se elige "Guardar como PDF"; el nombre
+  propuesto es `Preliminar <cliente> <mes> <año>`.
+- **Excel** descarga un libro con membrete, encabezados en azul, totales en negrita y el impuesto final
+  con doble línea, en las hojas Resumen, Calendario, Determinación, Proyección y Cuentas. Los montos son
+  números, no texto, y cada hoja viene lista para imprimir con su pie de página.
 
 ## Borradores
 

@@ -4,7 +4,8 @@ import { PLANES_DE_CUENTAS, PARAMETROS_2026 } from './config.js';
 import { lineasDePdf, leerDeclaracion } from './declaracion.js';
 import { calendarioDePagos, analizarCAIR } from './calendario.js';
 import { api, cargarSesion } from './sesion.js';
-import { libroDelPreliminar, nombreDeArchivo, descargarLibro } from './exportar.js';
+import { libroDelPreliminar, nombreDeArchivo, descargarLibro, cargarExcelJS } from './exportar.js';
+import { informeHtml, estiloDePagina } from './informe.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,6 +20,7 @@ let hayBase = false;
 let filtro = '';
 let informe = null; // lo que se está viendo, para exportarlo
 let usuarioActual = '';
+let firma = { nombre: 'RM', detalle: '', logo: null }; // membrete de los informes
 
 const FILAS = [
   ['Patrimonio', null],
@@ -406,7 +408,7 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
     escenarios, cuadre, cal, cair, filas: FILAS, contexto: { anio, mesCorte, crecimiento: contexto.crecimiento },
     cliente: $('cliente').value.trim() || 'Cliente sin nombre', ruc: $('ruc').value.trim(), usuario: usuarioActual,
   };
-  $('impreso').textContent = `Generado el ${new Date().toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })}${usuarioActual && usuarioActual !== 'Local' ? ` por ${usuarioActual}` : ''}`;
+  prepararInforme();
   $('vacio').classList.add('oculto');
   $('resultados').classList.remove('oculto');
   // En escritorio los resultados ya están a la vista; en celular quedan debajo del formulario.
@@ -417,19 +419,37 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
   }
 }
 
-// El PDF sale de imprimir la página; el título del documento es el nombre que propone el navegador.
+// El PDF sale de imprimir el informe (#informe), no la pantalla; el título del documento es el nombre
+// que propone el navegador al guardar.
+function prepararInforme() {
+  if (!informe) return;
+  const datos = { ...informe, firma, borrador: hayBase && (preliminar.estado !== 'terminado' || sucio) };
+  $('informe').innerHTML = informeHtml(datos);
+  $('estiloPagina').textContent = estiloDePagina(datos);
+}
+
 let tituloOriginal = document.title;
 $('imprimir').addEventListener('click', () => window.print());
 window.addEventListener('beforeprint', () => {
-  $('declaracionCompleta').open = true;
+  prepararInforme();
   tituloOriginal = document.title;
   if (informe) document.title = nombreDeArchivo({ ...informe.contexto, cliente: informe.cliente });
 });
 window.addEventListener('afterprint', () => { document.title = tituloOriginal; });
 
-$('exportarExcel').addEventListener('click', () => {
+$('exportarExcel').addEventListener('click', async () => {
   if (!informe) return;
-  descargarLibro(XLSX, libroDelPreliminar(XLSX, informe), `${nombreDeArchivo({ ...informe.contexto, cliente: informe.cliente })}.xlsx`);
+  const boton = $('exportarExcel');
+  boton.disabled = true;
+  boton.textContent = 'Generando…';
+  try {
+    const datos = { ...informe, firma, borrador: hayBase && (preliminar.estado !== 'terminado' || sucio) };
+    await descargarLibro(libroDelPreliminar(await cargarExcelJS(), datos), `${nombreDeArchivo({ ...informe.contexto, cliente: informe.cliente })}.xlsx`);
+  } catch (err) {
+    alert(err.message);
+  }
+  boton.disabled = false;
+  boton.textContent = 'Excel';
 });
 
 
@@ -627,7 +647,8 @@ $('tablaHistorial').addEventListener('click', async (e) => {
 
 cargarSesion()
   .then(async ({ baseDeDatos, nombre }) => {
-    usuarioActual = nombre;
+    usuarioActual = nombre === 'Local' ? '' : nombre;
+    api('/api/firma').then((f) => { firma = f; }).catch(() => {});
     if (!baseDeDatos) return;
     hayBase = true;
     for (const id of ['historial', 'irHistorial', 'expedienteEstado', 'guardarBorrador']) $(id).classList.remove('oculto');

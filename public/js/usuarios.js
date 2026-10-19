@@ -99,6 +99,60 @@ $('formClave').addEventListener('submit', async (e) => {
   }
 });
 
+// Datos de la firma (solo administradores)
+let logo = null;
+
+function pintarLogo() {
+  $('logoVista').innerHTML = logo ? `<img src="${logo}" alt="Logo de la firma">` : '<span>Sin logo</span>';
+  $('quitarLogo').hidden = !logo;
+}
+
+async function cargarFirma() {
+  const firma = await api('/api/firma');
+  $('firmaNombre').value = firma.nombre || '';
+  $('firmaDetalle').value = firma.detalle || '';
+  logo = firma.logo;
+  pintarLogo();
+  $('firmaPanel').classList.remove('oculto');
+}
+
+$('firmaLogo').addEventListener('change', (e) => {
+  const archivo = e.target.files[0];
+  e.target.value = '';
+  if (!archivo) return;
+  if (!/^image\/(png|jpeg)$/.test(archivo.type) || archivo.size > 500 * 1024) {
+    $('mensajeFirma').className = 'mensaje';
+    $('mensajeFirma').textContent = 'El logo debe ser PNG o JPG de menos de 500 KB.';
+    return;
+  }
+  const lector = new FileReader();
+  lector.onload = () => {
+    logo = lector.result;
+    pintarLogo();
+    $('mensajeFirma').textContent = 'Guarda para aplicar el logo.';
+    $('mensajeFirma').className = 'mensaje pendiente';
+  };
+  lector.readAsDataURL(archivo);
+});
+
+$('quitarLogo').addEventListener('click', () => {
+  logo = null;
+  pintarLogo();
+});
+
+$('formFirma').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const mensaje = $('mensajeFirma');
+  try {
+    await api('/api/firma', { method: 'PUT', body: JSON.stringify({ nombre: $('firmaNombre').value, detalle: $('firmaDetalle').value, logo }) });
+    mensaje.className = 'mensaje ok';
+    mensaje.textContent = 'Listo. Los próximos informes salen con estos datos.';
+  } catch (err) {
+    mensaje.className = 'mensaje';
+    mensaje.textContent = err.message;
+  }
+});
+
 cargarSesion()
   .then(async (datos) => {
     yo = datos;
@@ -107,7 +161,7 @@ cargarSesion()
     $('cuentaPanel').classList.remove('oculto');
     if (yo.rol === 'admin') {
       $('equipo').classList.remove('oculto');
-      await cargarUsuarios();
+      await Promise.all([cargarUsuarios(), cargarFirma()]);
     }
   })
   .catch((err) => {

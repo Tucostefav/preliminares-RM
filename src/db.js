@@ -78,6 +78,12 @@ async function crearTablas(pool) {
       KEY por_usuario (usuario_id),
       CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     ) CHARACTER SET utf8mb4`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ajustes (
+      clave VARCHAR(60) PRIMARY KEY,
+      valor LONGTEXT NOT NULL,
+      actualizado TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) CHARACTER SET utf8mb4`);
   // Columnas que se agregaron después: quién guardó, borradores y última edición.
   await asegurarColumna(pool, 'calculos', 'usuario_id', 'INT NULL');
   await asegurarColumna(pool, 'calculos', 'estado', "VARCHAR(20) NOT NULL DEFAULT 'terminado'");
@@ -218,4 +224,15 @@ export async function borrarSesion(tokenHash) {
 // Cierra todas las sesiones de un usuario, menos la indicada (la del propio usuario que cambia su clave).
 export async function borrarSesionesDeUsuario(usuarioId, salvo = '') {
   await pool.query('DELETE FROM sesiones WHERE usuario_id = ? AND token <> ?', [usuarioId, salvo]);
+}
+
+// Ajustes generales guardados como JSON (por ahora, los datos de la firma para los informes)
+
+export async function leerAjuste(clave) {
+  const [[fila]] = await pool.query('SELECT valor FROM ajustes WHERE clave = ?', [clave]);
+  return fila ? JSON.parse(fila.valor) : null;
+}
+
+export async function guardarAjuste(clave, valor) {
+  await pool.query('INSERT INTO ajustes (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)', [clave, JSON.stringify(valor)]);
 }

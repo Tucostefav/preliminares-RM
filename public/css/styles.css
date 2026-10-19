@@ -356,45 +356,72 @@ button, input, select { font: inherit; color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* Informe impreso o PDF: carta, una columna de bloques y tablas que caben en el ancho */
-.impreso { display: none; }
-@page { size: letter; margin: 14mm 12mm; }
+/* Informe impreso o PDF: documento aparte (#informe) con formato de firma. En pantalla no se ve. */
+.informe { display: none; }
+@page { size: letter; margin: 16mm 16mm 18mm; }
 @media print {
-  body { background: #fff; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .barra, .expediente, .acciones, #historial, .vacio, .notas h3 + ul li:empty { display: none !important; }
-  .app, .lienzo, .resultados { display: block; padding: 0; max-width: none; animation: none; }
-  .resultados > * + *, .lienzo > * + * { margin-top: 12px; }
-  .impreso { display: flex; justify-content: space-between; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1.5px solid var(--tinta); font: 500 9.5px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-2); }
-  .cabecera { padding: 0; }
-  .cabecera h1 { font-size: 22px; }
-  .cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .cifra { padding: 12px 14px; break-inside: avoid; }
-  .cifra-monto { font-size: 22px; }
-  .cifra.destacada { background: var(--tinta); color: #fff; }
-  .panel, .cifra { box-shadow: none; border-radius: 10px; }
-  .panel { padding: 14px 16px; }
-  .panel-cab { margin-bottom: 10px; break-after: avoid; }
-  .panel h2 { font-size: 14px; }
-  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  #cair, #cuadre, .linea { break-inside: avoid; }
-  .linea { overflow: visible; margin: 0 0 6px; padding: 0; }
-  .linea svg { min-width: 0; }
-  .tabla-contenedor { overflow: visible; }
-  .tabla th, .tabla td, #calendario th, #calendario td { padding: 5px 6px; font-size: 9.5px; }
-  .tabla th, #calendario th { font-size: 8.5px; }
-  .tabla td, #calendario td { font-size: 10px; }
-  .tabla tr.seccion td { padding-top: 12px; }
-  #calendario td:nth-child(2) { min-width: 0; }
-  #calendario td.nota { min-width: 0; font-size: 9px; }
-  #calendario td:first-child { white-space: nowrap; font-size: 9.5px; }
-  #calendario .punto { font-size: 9.5px; }
-  tr { break-inside: avoid; }
-  thead { display: table-header-group; }
-  #base .tabla th:first-child, #base .tabla td:first-child { white-space: nowrap; }
-  .plegable-panel summary::after, .plegable-panel[open] summary::after { content: none; }
-  .cifra-pie { flex-wrap: wrap; font-size: 10px; }
-  #declaracionCompleta { break-before: page; }
-  .notas { margin-top: 14px; font-size: 9.5px; break-inside: avoid; }
+  body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body > *:not(.informe) { display: none !important; }
+  .informe { display: block; position: relative; color: #111827; font: 400 9.5pt/1.5 var(--sans); }
+}
+.informe strong { font-weight: 600; }
+.inf-membrete { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding-bottom: 10pt; border-bottom: 2pt solid var(--tinta); }
+.inf-firma { display: flex; align-items: center; gap: 10pt; flex: 1; min-width: 0; }
+.inf-firma > div { max-width: 340pt; }
+.inf-firma strong { display: block; font-size: 12pt; letter-spacing: -0.01em; }
+.inf-firma span { display: block; color: var(--tinta-2); font-size: 8pt; }
+.inf-logo { max-height: 38pt; max-width: 150pt; object-fit: contain; }
+.inf-monograma { display: grid; place-items: center; width: 30pt; height: 30pt; border-radius: 6pt; background: var(--tinta); color: #fff; font: 600 10pt var(--mono); }
+.inf-tipo { text-align: right; display: grid; gap: 2pt; font: 500 7.5pt var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-2); }
+.inf-tipo span:first-child { color: var(--tinta); font-weight: 600; }
+.inf-portada { padding: 22pt 0 8pt; }
+.inf-supra { margin: 0 0 6pt; font: 500 7.5pt var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--acento); }
+.inf-portada h1 { font-size: 21pt; line-height: 1.15; letter-spacing: -0.025em; max-width: 26ch; }
+.inf-sub { margin: 6pt 0 16pt; color: var(--tinta-2); font-size: 10pt; }
+.inf-datos { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 0; border-top: 0.75pt solid #CBD2DC; border-bottom: 0.75pt solid #CBD2DC; }
+.inf-datos div { padding: 7pt 8pt 7pt 0; border-bottom: 0.5pt solid #E5E8EE; }
+.inf-datos div:nth-last-child(-n+3) { border-bottom: 0; }
+.inf-datos dt { font: 500 6.5pt var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-3); }
+.inf-datos dd { margin: 2pt 0 0; font-weight: 500; }
+.inf-h2 { margin: 20pt 0 6pt; padding-bottom: 4pt; border-bottom: 0.75pt solid var(--tinta); font-size: 11.5pt; letter-spacing: -0.01em; break-after: avoid; }
+.inf-h2 span { color: var(--acento); font-variant-numeric: tabular-nums; margin-right: 2pt; }
+.inf-parrafo { margin: 6pt 0 10pt; text-align: justify; hyphens: auto; }
+.inf-intro { margin: 4pt 0 8pt; color: var(--tinta-2); font-size: 8.5pt; }
+.inf-legal { font-size: 8pt; color: #374151; }
+.inf-tabla { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 8.5pt; margin-bottom: 4pt; }
+.inf-tabla th {
+  padding: 5pt 6pt; text-align: left; vertical-align: bottom; background: #EEF1F5; color: var(--tinta);
+  font: 600 6.8pt var(--mono); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 0.75pt solid var(--tinta);
+}
+.inf-tabla th small { display: block; font: 400 6.5pt var(--sans); letter-spacing: 0; text-transform: none; color: var(--tinta-2); }
+.inf-tabla th:not(:first-child) { text-align: right; }
+.inf-tabla td { padding: 4pt 6pt; border-bottom: 0.5pt solid #E5E8EE; vertical-align: top; }
+.inf-tabla td small { display: block; color: var(--tinta-3); font-size: 7pt; line-height: 1.35; margin-top: 1pt; }
+.inf-tabla .num { text-align: right; white-space: nowrap; }
+.inf-tabla tr { break-inside: avoid; }
+.inf-tabla thead { display: table-header-group; }
+.inf-tabla tr.inf-seccion td { padding-top: 9pt; font: 600 6.8pt var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-2); border-bottom-color: #CBD2DC; }
+.inf-tabla tr.inf-total td { font-weight: 600; border-top: 0.75pt solid var(--tinta); }
+/* Total final: doble raya, como en los estados financieros */
+.inf-tabla tr.inf-final td { font-weight: 700; border-top: 0.75pt solid var(--tinta); border-bottom: 2.25pt double var(--tinta); }
+.inf-tabla tr.inf-tenue td { color: var(--tinta-3); }
+.inf-tabla .inf-fecha { white-space: nowrap; }
+.inf-tabla .inf-nota-celda { color: var(--tinta-2); font-size: 8pt; }
+.inf-cifras td:first-child { width: 62%; }
+.inf-calendario th:nth-child(2), .inf-calendario th:nth-child(3) { text-align: left; }
+.inf-calendario td:nth-child(3) { white-space: nowrap; }
+.inf-cifras th:nth-child(2) { text-align: left; }
+.inf-bloque { break-inside: avoid; }
+.inf-determinacion td:first-child { width: 56%; }
+.inf-salto { break-before: page; }
+.inf-salto > .inf-h2 { margin-top: 0; }
+.inf-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 40pt; margin-top: 44pt; break-inside: avoid; }
+.inf-firmas div { display: grid; gap: 2pt; font-size: 8.5pt; }
+.inf-linea { display: block; border-top: 0.75pt solid var(--tinta); margin-bottom: 4pt; }
+.inf-firmas span:last-child { font: 500 7pt var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-3); }
+.inf-marca-agua {
+  position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg);
+  font: 700 92pt var(--sans); letter-spacing: 0.08em; color: rgba(180, 35, 24, 0.07); pointer-events: none; z-index: 0;
 }
 
 /* Cuenta en la barra superior */
@@ -528,3 +555,18 @@ a.marca { color: inherit; text-decoration: none; }
   #tablaHistorial tr.actual { box-shadow: inset 2px 0 0 var(--acento); padding-left: 10px; background: #F6FAF9; }
   #tablaHistorial tr.actual td { background: none; }
 }
+
+/* Datos de la firma */
+.form-firma { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; align-items: start; }
+.firma-campos { display: grid; gap: 12px; }
+.firma-logo { display: grid; gap: 8px; justify-items: start; }
+.firma-logo small { color: var(--tinta-3); font-size: 12px; }
+.logo-vista {
+  width: 100%; height: 96px; display: grid; place-items: center; padding: 12px;
+  border: 1px dashed #C9D0DA; border-radius: 12px; background: #FAFBFC; color: var(--tinta-3); font-size: 12.5px;
+}
+.logo-vista img { max-width: 100%; max-height: 72px; object-fit: contain; }
+.boton-archivo { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
+.boton-archivo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.mensaje.pendiente { color: var(--aviso); }
+@media (max-width: 700px) { .form-firma { grid-template-columns: 1fr; } }
