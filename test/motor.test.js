@@ -125,7 +125,8 @@ test('lee un balance de prueba exportado de QuickBooks', () => {
   assert.equal(r.patrimonio.pasivos, 2900); // proveedores + descuento - ITBMS a favor
   assert.equal(r.ingresos.ingresosGravables, 10000);
   assert.equal(r.costosGastos.utilidadContable, 1200);
-  assert.equal(r.renta.rentaGravable, 1150);
+  // Los intereses exentos son 50 de 10.050 de ingresos: esa parte de los 8.850 de gastos no se deduce.
+  assert.equal(r.renta.rentaGravable, 1194.03);
   assert.equal(r.costosGastos.gastosFinancieros, 100);
 
   const reportados = leerTotalesReportados(hojas, nombre);
@@ -171,4 +172,22 @@ test('lee el balance de QuickBooks con la columna de cuentas sin título y separ
   assert.equal(r.ingresos.ingresosBrutos, 100000);
   assert.equal(r.ingresos.ingresosExentos, 60000);
   assert.equal(r.ingresos.ingresosGravables, 40000);
+});
+
+test('reparte los gastos en proporción a los ingresos exentos, salvo que se escriba el monto', () => {
+  const cuentas = leerBalanceDePrueba([
+    ['Cuenta', 'Descripción', 'Saldo final'],
+    ['1101', 'Banco', 100000],
+    ['4101', 'Ingresos no gravables', -60000],
+    ['4102', 'Servicios', -40000],
+    ['6101', 'Honorarios', 70000],
+  ]);
+  const auto = liquidar(cuentas, {}, {}, { mes: 12 });
+  assert.equal(auto.costosGastos.costosGastosExentos, 42000);
+  assert.equal(auto.costosGastos.totalDeducibles, 28000);
+  assert.equal(auto.renta.rentaNetaGravable, 12000);
+  const manual = liquidar(cuentas, {}, { costosGastosExentos: 10000 }, { mes: 12 });
+  assert.equal(manual.costosGastos.totalDeducibles, 60000);
+  const sinReparto = liquidar(cuentas, {}, { repartoProporcional: false }, { mes: 12 });
+  assert.equal(sinReparto.costosGastos.totalDeducibles, 70000);
 });

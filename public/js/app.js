@@ -200,6 +200,7 @@ function calcular({ desplazar = true } = {}) {
   const ajustes = Object.fromEntries(['ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
   ajustes.interesesExentos = $('interesesExentos').checked;
   ajustes.sinAvisoOperacion = $('sinAvisoOperacion').checked;
+  ajustes.repartoProporcional = $('repartoProporcional').checked;
   const opciones = { mesCorte: Number($('mesCorte').value), crecimiento: Number($('crecimiento').value || 0) / 100 };
   const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
   const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 12 - opciones.mesCorte, plan: plan() });
@@ -466,7 +467,7 @@ $('exportarExcel').addEventListener('click', async () => {
 const escapar = (t) => String(t).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const CAMPOS = ['cliente', 'ruc', 'mesCorte', 'crecimiento', 'impuestoEstimado', 'estimadoPagado', 'saldoAFavor', 'tarifa',
   'arrastrePerdidas', 'ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones', 'plan'];
-const CASILLAS = ['noAplicarCAIR', 'interesesExentos', 'sinAvisoOperacion'];
+const CASILLAS = ['noAplicarCAIR', 'interesesExentos', 'sinAvisoOperacion', 'repartoProporcional'];
 const MESES = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fechaHora = (f) => new Date(f).toLocaleString('es-PA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 

@@ -127,6 +127,10 @@ usa el de Rose Molina.
   solo cuentan las partidas vencidas.
 - Impuesto complementario (10 % sobre el 40 % de la utilidad después del impuesto) y aviso de operación
   (2 % del patrimonio, mínimo B/. 100 y máximo B/. 60.000) se muestran aparte.
+- Ingresos exentos: los intereses de bancos locales y las cuentas de ingresos cuyo nombre dice exento, no
+  gravable o fuente extranjera se restan de los ingresos gravables. Los costos y gastos del período se
+  reparten en esa misma proporción y la parte de los exentos no se deduce, salvo que se escriba el monto
+  en Ajustes fiscales o se desmarque el reparto.
 - Las sociedades sin actividad comercial (por ejemplo, las que solo arriendan bienes propios) no están
   obligadas a tener aviso de operación. Con el interruptor **No obligado al aviso de operación** (en
   Cliente) ese impuesto queda en cero, sale del calendario y los informes lo marcan como "No obligado".

@@ -58,6 +58,13 @@ export function segmentosDelResumen(d) {
   return s;
 }
 
+// Explica el reparto proporcional de los gastos cuando hay ingresos exentos (vacío si no se aplicó).
+export function notaDelReparto(escenarios) {
+  const cg = escenarios.at(-1).resultado.costosGastos;
+  if (!cg.repartoAutomatico) return '';
+  return `Los ingresos exentos o no gravables son el ${pct(cg.proporcionExenta)} de los ingresos netos; en esa misma proporción, los costos y gastos del período se tratan como no deducibles por ser atribuibles a esos ingresos.`;
+}
+
 // Leyenda para las sociedades sin actividad comercial, que no pagan el impuesto de aviso de operación.
 export const NO_OBLIGADO = 'No obligado';
 
@@ -180,7 +187,7 @@ export function informeHtml(d) {
 
     <div class="inf-salto">
       ${seccion('Determinación del impuesto sobre la renta')}
-      <p class="inf-intro">Estructura de la declaración jurada de rentas, con la liquidación al corte y la proyectada al cierre del período.</p>
+      <p class="inf-intro">Estructura de la declaración jurada de rentas, con la liquidación al corte y la proyectada al cierre del período.${notaDelReparto(escenarios) ? ` ${notaDelReparto(escenarios)}` : ''}</p>
       ${determinacion}
     </div>
 

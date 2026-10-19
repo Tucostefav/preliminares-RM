@@ -55,7 +55,8 @@ export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS.estandar) {
  *   impuestoEstimado (estimado declarado para este año), estimadoPagado (si se conoce el valor exacto),
  *   saldoAFavor, arrastrePerdidas (cuotas del 20 % disponibles este año), noAplicarCAIR, tarifa
  * @param {object} ajustes  ingresosExentos, interesesExentos, costosGastosExentos, otrosNoDeducibles, retenciones,
- *   sinAvisoOperacion (la sociedad no ejerce actividad comercial, p. ej. arrienda bienes propios)
+ *   sinAvisoOperacion (la sociedad no ejerce actividad comercial, p. ej. arrienda bienes propios),
+ *   repartoProporcional (false para no repartir los gastos entre ingresos gravables y exentos)
  * @param {object} opciones  mes (1-12) al que corresponde la liquidación, plan de cuentas
  */
 export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan, p = PARAMETROS_2026 } = {}) {
@@ -91,8 +92,14 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const gastosGenerales = Math.max(0, v('gastosGenerales') - a('otrosNoDeducibles'));
   const depreciacion = v('depreciacion');
   const gastosFinancieros = v('gastosFinancieros');
-  const costosGastosExentos = a('costosGastosExentos'); // atribuibles a ingresos exentos o extranjeros
-  const totalDeducibles = Math.max(0, costos + gastosGenerales + depreciacion + gastosFinancieros - costosGastosExentos);
+  // Costos y gastos atribuibles a ingresos exentos o extranjeros: no son deducibles. Si no se escribe el
+  // monto, los gastos comunes se reparten en proporción a los ingresos exentos sobre los ingresos netos.
+  const gastosDelPeriodo = costos + gastosGenerales + depreciacion + gastosFinancieros;
+  const ingresosNetos = ingresosBrutos - devoluciones;
+  const proporcionExenta = ingresosNetos > 0 ? Math.min(1, ingresosExentos / ingresosNetos) : 0;
+  const repartoAutomatico = !a('costosGastosExentos') && ajustes.repartoProporcional !== false && proporcionExenta > 0;
+  const costosGastosExentos = repartoAutomatico ? gastosDelPeriodo * proporcionExenta : a('costosGastosExentos');
+  const totalDeducibles = Math.max(0, gastosDelPeriodo - costosGastosExentos);
   const totalNoDeducibles = (k.noDeducibles || 0) + Math.min(a('otrosNoDeducibles'), v('gastosGenerales')) + costosGastosExentos;
   const utilidadContable = ingresosBrutos - devoluciones - (costos + v('gastosGenerales') + depreciacion + gastosFinancieros + (k.noDeducibles || 0));
 
@@ -138,7 +145,10 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   return {
     patrimonio: todo({ ...activos, totalActivos, pasivos, patrimonioNeto }),
     ingresos: todo({ ingresosOperacion, ingresosFinancieros, otrosIngresos, ingresosBrutos, devoluciones, ingresosExentos, ingresosGravables }),
-    costosGastos: todo({ costos, gastosGenerales, depreciacion, gastosFinancieros, costosGastosExentos, totalDeducibles, totalNoDeducibles, utilidadContable }),
+    costosGastos: {
+      ...todo({ costos, gastosGenerales, depreciacion, gastosFinancieros, costosGastosExentos, totalDeducibles, totalNoDeducibles, utilidadContable }),
+      repartoAutomatico, proporcionExenta,
+    },
     renta: {
       ...todo({ rentaNetaGravable, perdida, arrastrePerdidas, rentaGravableNormal, rentaGravableCAIR, rentaGravable }),
       aplicaCAIR, metodo,

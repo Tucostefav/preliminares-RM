@@ -2,7 +2,7 @@
 // tabla, totales con raya doble y configuración de impresión. Los montos son números, no texto.
 // Usa ExcelJS (public/vendor/exceljs), que se carga solo al exportar.
 
-import { MESES, fechaLarga, hoyLargo, segmentosDelResumen, ALCANCE, NO_OBLIGADO } from './informe.js';
+import { MESES, fechaLarga, hoyLargo, segmentosDelResumen, ALCANCE, NO_OBLIGADO, notaDelReparto } from './informe.js';
 
 const ESTADOS = { vencida: 'Vencida', pendiente: 'Por pagar', proyectado: 'Proyectada', anual: 'Anual' };
 const NUMERO = '#,##0.00;(#,##0.00);"–"';
@@ -258,6 +258,8 @@ export function libroDelPreliminar(ExcelJS, d) {
       if (!f) n = filaDatos(hoja, n, [nombre.toUpperCase(), ...columnas.map(() => '')], 'seccion');
       else n = filaDatos(hoja, n, [nombre, ...columnas.map((e) => f(e.resultado))], clase === 'total' ? 'total' : clase === 'destacado' ? 'final' : '');
     }
+    const nota = notaDelReparto(escenarios);
+    if (nota) parrafo(hoja, n + 1, nota, 1 + columnas.length, { alto: 30, tamano: 9, color: GRIS });
   }
 
   // Base de la proyección
