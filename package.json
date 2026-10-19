@@ -1,0 +1,19 @@
+{
+  "name": "preliminares-rm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cálculo preliminar del impuesto sobre la renta (Panamá, DGI) con proyección al cierre del año",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "mysql2": "^3.11.5"
+  }
+}
