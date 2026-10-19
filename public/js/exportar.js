@@ -2,7 +2,7 @@
 // tabla, totales con raya doble y configuración de impresión. Los montos son números, no texto.
 // Usa ExcelJS (public/vendor/exceljs), que se carga solo al exportar.
 
-import { MESES, fechaLarga, hoyLargo, segmentosDelResumen, ALCANCE } from './informe.js';
+import { MESES, fechaLarga, hoyLargo, segmentosDelResumen, ALCANCE, NO_OBLIGADO } from './informe.js';
 
 const ESTADOS = { vencida: 'Vencida', pendiente: 'Por pagar', proyectado: 'Proyectada', anual: 'Anual' };
 const NUMERO = '#,##0.00;(#,##0.00);"–"';
@@ -198,7 +198,7 @@ export function libroDelPreliminar(ExcelJS, d) {
       n = filaDatos(hoja, n, ['Impuesto causado proyectado del período', '', ll.impuestoCausado]);
     }
     n = filaDatos(hoja, n, ['Impuesto complementario proyectado', '', cierre.resultado.otros.impuestoComplementario]);
-    n = filaDatos(hoja, n, ['Impuesto de aviso de operación proyectado', '', cierre.resultado.otros.avisoOperacion]);
+    n = filaDatos(hoja, n, ['Impuesto de aviso de operación proyectado', cierre.resultado.otros.obligadoAviso === false ? NO_OBLIGADO : '', cierre.resultado.otros.avisoOperacion]);
     if (cal) n = filaDatos(hoja, n, [`Total de pagos hasta el 31 de marzo de ${anio + 1}`, '', cal.totalHastaDeclaracion], 'final');
 
     n = titulo(hoja, n + 1, 'Cálculo alterno del impuesto sobre la renta (CAIR)', 3);

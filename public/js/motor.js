@@ -54,7 +54,8 @@ export function clasificarCuentas(cuentas, plan = PLANES_DE_CUENTAS.estandar) {
  * @param {object} anterior  datos de la declaración del año pasado
  *   impuestoEstimado (estimado declarado para este año), estimadoPagado (si se conoce el valor exacto),
  *   saldoAFavor, arrastrePerdidas (cuotas del 20 % disponibles este año), noAplicarCAIR, tarifa
- * @param {object} ajustes  ingresosExentos, interesesExentos, costosGastosExentos, otrosNoDeducibles, retenciones
+ * @param {object} ajustes  ingresosExentos, interesesExentos, costosGastosExentos, otrosNoDeducibles, retenciones,
+ *   sinAvisoOperacion (la sociedad no ejerce actividad comercial, p. ej. arrienda bienes propios)
  * @param {object} opciones  mes (1-12) al que corresponde la liquidación, plan de cuentas
  */
 export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan, p = PARAMETROS_2026 } = {}) {
@@ -123,10 +124,12 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   // Otros tributos que se preparan con la misma información
   const utilidadDespuesImpuesto = Math.max(0, rentaNetaGravable - arrastrePerdidas - impuestoCausado);
   const impuestoComplementario = utilidadDespuesImpuesto * p.baseComplementario * p.tarifaComplementario;
-  const avisoOperacion = Math.min(
-    p.avisoOperacion.maximo,
-    Math.max(p.avisoOperacion.minimo, Math.max(0, patrimonioNeto) * p.avisoOperacion.tarifa),
-  );
+  // Las sociedades sin actividad comercial (p. ej. las que arriendan bienes propios) no tienen aviso de
+  // operación y no pagan ese impuesto.
+  const obligadoAviso = !ajustes.sinAvisoOperacion;
+  const avisoOperacion = obligadoAviso
+    ? Math.min(p.avisoOperacion.maximo, Math.max(p.avisoOperacion.minimo, Math.max(0, patrimonioNeto) * p.avisoOperacion.tarifa))
+    : 0;
 
   const r = redondear;
   const todo = (o) => Object.fromEntries(Object.entries(o).map(([key, val]) => [key, r(val)]));
@@ -147,7 +150,7 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
       partidasVencidas,
       tasaEfectiva: ingresosGravables - totalDeducibles > 0 ? impuestoCausado / (ingresosGravables - totalDeducibles) : null,
     },
-    otros: todo({ impuestoComplementario, avisoOperacion }),
+    otros: { ...todo({ impuestoComplementario, avisoOperacion }), obligadoAviso },
     noDeducibles,
     detalle,
   };

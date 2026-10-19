@@ -114,6 +114,23 @@ button, input, select { font: inherit; color: inherit; }
 .par { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .casilla { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--tinta-2); cursor: pointer; }
 .casilla input { width: 16px; height: 16px; accent-color: var(--acento); }
+/* Interruptor (casilla con forma de switch) */
+.interruptor { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 4px; cursor: pointer; font-size: 13px; color: var(--tinta); }
+.interruptor input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.interruptor-pista {
+  flex: none; position: relative; width: 34px; height: 20px; margin-top: 1px; border-radius: 999px;
+  background: #CBD2DC; transition: background 0.15s ease;
+}
+.interruptor-pista::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(12, 20, 36, 0.25); transition: transform 0.15s ease;
+}
+.interruptor input:checked + .interruptor-pista { background: var(--acento); }
+.interruptor input:checked + .interruptor-pista::after { transform: translateX(14px); }
+.interruptor input:focus-visible + .interruptor-pista { outline: 2px solid var(--acento); outline-offset: 2px; }
+.interruptor-texto { display: grid; gap: 2px; font-weight: 500; }
+.interruptor-texto small { font-weight: 400; color: var(--tinta-3); font-size: 12px; line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .interruptor-pista, .interruptor-pista::after { transition: none; } }
 
 .plegable summary { list-style: none; cursor: pointer; display: grid; gap: 2px; }
 .plegable summary::-webkit-details-marker { display: none; }

@@ -132,3 +132,21 @@ test('lee un balance de prueba exportado de QuickBooks', () => {
   assert.equal(reportados.totalActivos.valor, 6800);
   assert.equal(reportados.utilidadContable.valor, 1200);
 });
+
+test('una sociedad sin actividad comercial no paga aviso de operación ni lo tiene en el calendario', async () => {
+  const { calendarioDePagos } = await import('../public/js/calendario.js');
+  const cuentas = [
+    { codigo: '1101', nombre: 'Banco', valor: 500000 },
+    { codigo: '4101', nombre: 'Alquileres', valor: 120000 },
+    { codigo: '6101', nombre: 'Mantenimiento', valor: 20000 },
+  ];
+  const conAviso = liquidar(cuentas, {}, {}, { mes: 12 });
+  const sinAviso = liquidar(cuentas, {}, { sinAvisoOperacion: true }, { mes: 12 });
+  assert.equal(conAviso.otros.avisoOperacion, 10000);
+  assert.equal(sinAviso.otros.avisoOperacion, 0);
+  assert.equal(sinAviso.otros.obligadoAviso, false);
+  assert.equal(sinAviso.liquidacion.impuestoCausado, conAviso.liquidacion.impuestoCausado);
+  const avisoEn = (r) => calendarioDePagos(r, { anio: 2026, mesCorte: 12, anterior: {} }).pagos.some((p) => /aviso de operación/.test(p.concepto));
+  assert.ok(avisoEn(conAviso));
+  assert.ok(!avisoEn(sinAviso));
+});

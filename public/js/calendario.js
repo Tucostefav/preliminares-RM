@@ -46,10 +46,12 @@ export function calendarioDePagos(cierre, { anio, mesCorte, anterior = {}, tasaU
       ? `Proyecta ${b(l.saldoAFavor)} a favor, que se abona al estimado de ${siguiente}.`
       : 'Impuesto causado menos las tres partidas del estimado.',
   });
-  pagos.push({
-    fecha: fecha(siguiente, 3, 31), concepto: `Impuesto de aviso de operación (patrimonio ${anio})`, monto: cierre.otros.avisoOperacion, estado: 'proyectado',
-    nota: '2 % del patrimonio al cierre. No admite prórroga.',
-  });
+  if (cierre.otros.obligadoAviso !== false) {
+    pagos.push({
+      fecha: fecha(siguiente, 3, 31), concepto: `Impuesto de aviso de operación (patrimonio ${anio})`, monto: cierre.otros.avisoOperacion, estado: 'proyectado',
+      nota: '2 % del patrimonio al cierre. No admite prórroga.',
+    });
+  }
   pagos.push({
     fecha: fecha(siguiente, 6, 30), concepto: `Impuesto complementario ${anio}`, monto: cierre.otros.impuestoComplementario, estado: 'proyectado',
     nota: 'Se acredita contra el impuesto de dividendos cuando la sociedad los reparta.',

@@ -58,6 +58,9 @@ export function segmentosDelResumen(d) {
   return s;
 }
 
+// Leyenda para las sociedades sin actividad comercial, que no pagan el impuesto de aviso de operación.
+export const NO_OBLIGADO = 'No obligado';
+
 export const ALCANCE = 'Este informe es una estimación preparada con fines de planificación fiscal, a partir del balance de prueba y de la declaración jurada de rentas del período anterior proporcionados por la administración del contribuyente, sin auditoría ni revisión independiente de esa información. Las cifras proyectadas suponen que los meses restantes del período se comportarán como el promedio de los meses transcurridos; los resultados reales pueden diferir. Los cálculos aplican la tarifa general del 25 %, el cálculo alterno (CAIR), el arrastre de pérdidas, el impuesto estimado, el impuesto complementario y el impuesto de aviso de operación conforme al Código Fiscal de la República de Panamá. Este documento no sustituye la declaración jurada de rentas ni constituye una opinión sobre los estados financieros.';
 
 /**
@@ -83,11 +86,11 @@ export function informeHtml(d) {
     [`Impuesto sobre la renta al ${fechaLarga(fechaCorte)}`, neto(lc)],
     ...(proyectado ? [['Impuesto sobre la renta proyectado al 31 de diciembre', neto(ll)], ['Impuesto causado proyectado del período', ll.impuestoCausado]] : []),
     ['Impuesto complementario proyectado', cierre.resultado.otros.impuestoComplementario],
-    ['Impuesto de aviso de operación proyectado', cierre.resultado.otros.avisoOperacion],
+    ['Impuesto de aviso de operación proyectado', cierre.resultado.otros.avisoOperacion, cierre.resultado.otros.obligadoAviso === false ? NO_OBLIGADO : ''],
   ];
-  const filasCifras = cifras.map(([concepto, v], i) => {
+  const filasCifras = cifras.map(([concepto, v, nota], i) => {
     const conSentido = i < (proyectado ? 2 : 1);
-    return `<tr><td>${concepto}</td><td class="inf-nota-celda">${conSentido ? (v < 0 ? 'A favor' : 'Por pagar') : ''}</td><td class="num">${formato.format(Math.abs(v))}</td></tr>`;
+    return `<tr><td>${concepto}</td><td class="inf-nota-celda">${conSentido ? (v < 0 ? 'A favor' : 'Por pagar') : (nota || '')}</td><td class="num">${formato.format(Math.abs(v))}</td></tr>`;
   });
   if (cal) filasCifras.push(`<tr class="inf-final"><td>Total de pagos hasta el 31 de marzo de ${anio + 1}</td><td></td><td class="num">${formato.format(cal.totalHastaDeclaracion)}</td></tr>`);
 

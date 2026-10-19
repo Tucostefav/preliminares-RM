@@ -199,6 +199,7 @@ function calcular({ desplazar = true } = {}) {
   };
   const ajustes = Object.fromEntries(['ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
   ajustes.interesesExentos = $('interesesExentos').checked;
+  ajustes.sinAvisoOperacion = $('sinAvisoOperacion').checked;
   const opciones = { mesCorte: Number($('mesCorte').value), crecimiento: Number($('crecimiento').value || 0) / 100 };
   const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
   const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 12 - opciones.mesCorte, plan: plan() });
@@ -217,6 +218,11 @@ function cuadrar(reportados, r) {
     nombre: nombres[clave], hoja, reportado: valor, calculado: calculados[clave], cuadra: Math.abs(valor - calculados[clave]) < 1,
   }));
 }
+
+// Cambia el impuesto y el calendario: si ya hay resultados, se recalculan al momento.
+$('sinAvisoOperacion').addEventListener('change', () => {
+  if (ultimo) calcular({ desplazar: false });
+});
 
 $('plan').addEventListener('change', () => {
   if (!hojas) return;
@@ -460,7 +466,7 @@ $('exportarExcel').addEventListener('click', async () => {
 const escapar = (t) => String(t).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const CAMPOS = ['cliente', 'ruc', 'mesCorte', 'crecimiento', 'impuestoEstimado', 'estimadoPagado', 'saldoAFavor', 'tarifa',
   'arrastrePerdidas', 'ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones', 'plan'];
-const CASILLAS = ['noAplicarCAIR', 'interesesExentos'];
+const CASILLAS = ['noAplicarCAIR', 'interesesExentos', 'sinAvisoOperacion'];
 const MESES = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fechaHora = (f) => new Date(f).toLocaleString('es-PA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
@@ -477,7 +483,8 @@ function ponerFormulario({ valores = {}, casillas = {}, leidos = [] }) {
     $(id).value = valores[id] ?? $(id).value;
     $(id).classList.toggle('leido', leidos.includes(id));
   }
-  for (const id of CASILLAS) if (id in casillas) $(id).checked = casillas[id];
+  // Los preliminares guardados antes de que existiera una casilla la toman con su valor inicial.
+  for (const id of CASILLAS) $(id).checked = id in casillas ? casillas[id] : $(id).defaultChecked;
 }
 
 function pintarEstado() {

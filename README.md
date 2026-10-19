@@ -127,6 +127,9 @@ usa el de Rose Molina.
   solo cuentan las partidas vencidas.
 - Impuesto complementario (10 % sobre el 40 % de la utilidad después del impuesto) y aviso de operación
   (2 % del patrimonio, mínimo B/. 100 y máximo B/. 60.000) se muestran aparte.
+- Las sociedades sin actividad comercial (por ejemplo, las que solo arriendan bienes propios) no están
+  obligadas a tener aviso de operación. Con el interruptor **No obligado al aviso de operación** (en
+  Cliente) ese impuesto queda en cero, sale del calendario y los informes lo marcan como "No obligado".
 - Calendario: partidas del estimado el 30 de junio, 30 de septiembre y 31 de diciembre; saldo del ISR y
   aviso de operación el 31 de marzo del año siguiente; complementario el 30 de junio del año siguiente;
   tasa única el 15 de enero o el 15 de julio según la inscripción de la sociedad. El saldo a favor
