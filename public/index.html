@@ -3,99 +3,147 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Renta preliminar RM</title>
+  <title>RM Preliminar · Impuesto sobre la renta</title>
+  <meta name="theme-color" content="#0C1424">
+  <link rel="preload" href="vendor/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/styles.css">
   <script src="vendor/xlsx.full.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Renta preliminar</h1>
-    <p>Cómo quedaría la declaración de renta del cliente si se presentara hoy, y cómo cierra el año.
-       El balance se lee en este navegador; solo se guarda lo que pongas en el historial.</p>
+  <header class="barra">
+    <div class="marca">
+      <span class="sello" aria-hidden="true">RM</span>
+      <span class="marca-nombre">Preliminar</span>
+      <span class="marca-sub">Impuesto sobre la renta · Panamá</span>
+    </div>
+    <nav class="barra-acciones">
+      <a href="#historial" id="irHistorial" class="enlace oculto">Historial</a>
+    </nav>
   </header>
 
-  <main>
-    <section class="tarjeta">
-      <h2>1. Datos del cliente</h2>
-      <div class="rejilla">
-        <label>Cliente <input id="cliente" placeholder="Razón social"></label>
-        <label>RUC <input id="ruc"></label>
-        <label>Mes de corte
-          <select id="mesCorte">
-            <option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
-            <option value="9" selected>Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option>
-          </select>
-        </label>
-        <label>Ajuste al promedio mensual (%) <input id="crecimiento" type="number" step="0.1" value="0"></label>
-        <label>Plan de cuentas
-          <select id="plan">
-            <option value="estandar" selected>4 ingresos, 5 costos, 6 a 8 gastos</option>
-            <option value="invertido">4 ingresos, 5 gastos, 6 costos</option>
-            <option value="unificado">4 ingresos, 5 costos y gastos</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <section class="tarjeta">
-      <h2>2. Balance de prueba al corte</h2>
-      <p class="ayuda">Excel o CSV con cuenta, nombre y saldo final (o columnas débito y crédito). Puede ser el
-         libro completo de QuickBooks: el programa busca la hoja del balance de prueba y, si el libro trae
-         también el balance general y el estado de resultados, cuadra los totales contra ellos.</p>
-      <input type="file" id="archivoBalance" accept=".xlsx,.xls,.csv">
-      <p id="estadoBalance" class="estado"></p>
-    </section>
-
-    <section class="tarjeta">
-      <h2>3. Declaración de renta 2025</h2>
-      <p class="ayuda">Sube el PDF de la declaración presentada en e-Tax y los datos se llenan solos. Puedes corregirlos a mano.</p>
-      <input type="file" id="archivoDeclaracion" accept=".pdf">
-      <p id="estadoDeclaracion" class="estado"></p>
-      <div id="resumenDeclaracion" class="declaracion oculto"></div>
-      <div class="rejilla">
-        <label>Impuesto estimado declarado para 2026 <input class="dinero" id="impuestoEstimado"></label>
-        <label>Estimado pagado a la fecha <input class="dinero" id="estimadoPagado" placeholder="Vacío: se calcula por partidas vencidas"></label>
-        <label>Saldo a favor de 2025 <input class="dinero" id="saldoAFavor"></label>
-        <label>Arrastre de pérdidas disponible en 2026 <input class="dinero" id="arrastrePerdidas" placeholder="Suma de las cuotas del 20 %"></label>
-        <label>Tarifa del impuesto (%) <input id="tarifa" type="number" step="0.5" value="25"></label>
-        <label class="casilla"><input type="checkbox" id="noAplicarCAIR"> La DGI autorizó no aplicar el CAIR</label>
-      </div>
-    </section>
-
-    <section class="tarjeta">
-      <h2>4. Ajustes fiscales (opcional)</h2>
-      <div class="rejilla">
-        <label>Otros ingresos exentos, no gravables o de fuente extranjera <input class="dinero" id="ingresosExentos"></label>
-        <label>Costos y gastos de esos ingresos (no deducibles) <input class="dinero" id="costosGastosExentos"></label>
-        <label>Otros gastos no deducibles <input class="dinero" id="otrosNoDeducibles"></label>
-        <label>Retenciones y créditos al corte <input class="dinero" id="retenciones"></label>
-        <label class="casilla"><input type="checkbox" id="interesesExentos" checked> Los intereses ganados son exentos (depósitos en bancos locales)</label>
-      </div>
-      <button id="calcular">Calcular</button>
-    </section>
-
-    <section id="resultados" class="tarjeta oculto">
-      <div class="encabezado-resultados">
-        <h2>Resultado</h2>
-        <div class="acciones">
-          <button id="guardar" class="secundario oculto">Guardar en el historial</button>
-          <button id="imprimir" class="secundario">Imprimir o guardar PDF</button>
+  <div class="app">
+    <aside class="expediente" aria-label="Datos del cálculo">
+      <section class="bloque-form">
+        <h2 class="rotulo">Cliente</h2>
+        <label class="campo">Razón social <input id="cliente" placeholder="Se llena con la declaración" autocomplete="off"></label>
+        <label class="campo">RUC <input id="ruc" autocomplete="off"></label>
+        <div class="par">
+          <label class="campo">Corte
+            <select id="mesCorte">
+              <option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+              <option value="9" selected>Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option>
+            </select>
+          </label>
+          <label class="campo">Ajuste al promedio <span class="con-unidad"><input id="crecimiento" type="number" step="1" value="0"><span>%</span></span></label>
         </div>
-      </div>
-      <div id="resumen" class="resumen"></div>
-      <div id="calendario" class="bloque"></div>
-      <div id="cair" class="bloque"></div>
-      <div id="base" class="bloque"></div>
-      <h3>Declaración de renta: hoy y al cierre</h3>
-      <div class="tabla-contenedor"><table id="tabla"></table></div>
-      <div id="notas" class="notas"></div>
-    </section>
+      </section>
 
-    <section id="historial" class="tarjeta oculto">
-      <h2>Historial de cálculos</h2>
-      <div class="tabla-contenedor"><table id="tablaHistorial"></table></div>
-    </section>
-  </main>
+      <section class="bloque-form">
+        <h2 class="rotulo">Archivos</h2>
+        <label class="zona" data-zona>
+          <input type="file" id="archivoBalance" accept=".xlsx,.xls,.csv">
+          <span class="zona-titulo">Balance de prueba al corte</span>
+          <span class="zona-ayuda">Excel o CSV. Si es el libro de QuickBooks, también cuadra contra el balance general y los resultados.</span>
+          <span id="estadoBalance" class="estado" aria-live="polite"></span>
+        </label>
+        <label class="zona" data-zona>
+          <input type="file" id="archivoDeclaracion" accept=".pdf">
+          <span class="zona-titulo">Declaración de renta del año anterior</span>
+          <span class="zona-ayuda">PDF presentado en e-Tax. Llena solos los datos de abajo.</span>
+          <span id="estadoDeclaracion" class="estado" aria-live="polite"></span>
+        </label>
+        <div id="resumenDeclaracion" class="declaracion oculto"></div>
+      </section>
+
+      <details class="bloque-form plegable" id="datosAnteriores">
+        <summary><span class="rotulo">Declaración anterior</span><span class="resumen-plegable">Estimado, saldo a favor, tarifa</span></summary>
+        <label class="campo">Impuesto estimado del año <input class="dinero" id="impuestoEstimado" inputmode="decimal"></label>
+        <label class="campo">Estimado pagado a la fecha <input class="dinero" id="estimadoPagado" inputmode="decimal" placeholder="Se calcula por partidas vencidas"></label>
+        <div class="par">
+          <label class="campo">Saldo a favor <input class="dinero" id="saldoAFavor" inputmode="decimal"></label>
+          <label class="campo">Tarifa <span class="con-unidad"><input id="tarifa" type="number" step="0.5" value="25"><span>%</span></span></label>
+        </div>
+        <label class="campo">Arrastre de pérdidas disponible <input class="dinero" id="arrastrePerdidas" inputmode="decimal" placeholder="Suma de las cuotas del 20 %"></label>
+        <label class="casilla"><input type="checkbox" id="noAplicarCAIR"> La DGI autorizó no aplicar el CAIR</label>
+      </details>
+
+      <details class="bloque-form plegable">
+        <summary><span class="rotulo">Ajustes fiscales</span><span class="resumen-plegable">Exentos, no deducibles, retenciones</span></summary>
+        <label class="casilla"><input type="checkbox" id="interesesExentos" checked> Intereses de bancos locales exentos</label>
+        <label class="campo">Otros ingresos exentos o de fuente extranjera <input class="dinero" id="ingresosExentos" inputmode="decimal"></label>
+        <label class="campo">Costos y gastos de esos ingresos <input class="dinero" id="costosGastosExentos" inputmode="decimal"></label>
+        <label class="campo">Otros gastos no deducibles <input class="dinero" id="otrosNoDeducibles" inputmode="decimal"></label>
+        <label class="campo">Retenciones y créditos al corte <input class="dinero" id="retenciones" inputmode="decimal"></label>
+        <label class="campo">Plan de cuentas
+          <select id="plan">
+            <option value="estandar" selected>4 ingresos · 5 costos · 6 a 8 gastos</option>
+            <option value="invertido">4 ingresos · 5 gastos · 6 costos</option>
+            <option value="unificado">4 ingresos · 5 costos y gastos</option>
+          </select>
+        </label>
+      </details>
+
+      <div class="accion-principal">
+        <button id="calcular" class="boton">Calcular</button>
+        <p class="privacidad">El balance se lee en este navegador. Solo se guarda lo que pases al historial.</p>
+      </div>
+    </aside>
+
+    <main class="lienzo">
+      <section id="vacio" class="vacio">
+        <p class="rotulo">Renta preliminar</p>
+        <h1>Qué pagaría el cliente si declarara hoy, y qué le espera al cierre.</h1>
+        <ol class="pasos">
+          <li><strong>Sube el balance de prueba</strong> al último mes cerrado.</li>
+          <li><strong>Sube la declaración del año anterior</strong> para traer el estimado y el saldo a favor.</li>
+          <li><strong>Calcula</strong> y revisa el calendario de pagos hasta diciembre del próximo año.</li>
+        </ol>
+      </section>
+
+      <section id="resultados" class="resultados oculto" aria-live="polite">
+        <header class="cabecera">
+          <div>
+            <p class="rotulo" id="cabeceraMeta"></p>
+            <h1 id="cabeceraCliente">Resultado</h1>
+          </div>
+          <div class="acciones">
+            <button id="guardar" class="boton-sec oculto">Guardar en el historial</button>
+            <button id="imprimir" class="boton-sec">Imprimir o PDF</button>
+          </div>
+        </header>
+
+        <div id="resumen" class="cifras"></div>
+
+        <section class="panel" aria-labelledby="tLinea">
+          <div class="panel-cab">
+            <h2 id="tLinea">Línea de pagos</h2>
+            <p class="panel-sub">Fechas del Código Fiscal. El tamaño de cada marca es proporcional al monto.</p>
+          </div>
+          <div id="linea" class="linea"></div>
+          <div id="calendario"></div>
+        </section>
+
+        <div class="dos">
+          <section class="panel" id="cair"></section>
+          <section class="panel" id="cuadre"></section>
+        </div>
+
+        <section class="panel" id="base"></section>
+
+        <details class="panel plegable-panel" id="declaracionCompleta">
+          <summary><h2>Declaración de renta</h2><span class="panel-sub">Al corte y proyectada al cierre, renglón por renglón</span></summary>
+          <div class="tabla-contenedor"><table id="tabla" class="tabla"></table></div>
+        </details>
+
+        <div id="notas" class="notas"></div>
+      </section>
+
+      <section id="historial" class="panel oculto">
+        <div class="panel-cab"><h2>Historial</h2><p class="panel-sub">Cálculos guardados en la base de datos.</p></div>
+        <div class="tabla-contenedor"><table id="tablaHistorial" class="tabla"></table></div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
