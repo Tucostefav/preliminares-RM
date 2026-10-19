@@ -45,15 +45,15 @@ test('exporta el preliminar a Excel con membrete, números y una hoja por secci�
   await leido.xlsx.load(await libro.xlsx.writeBuffer());
   const hoja = leido.getWorksheet('Determinación');
   assert.equal(hoja.getCell('A1').value, 'RM Contadores');
-  assert.match(hoja.getCell('A4').value, /Empresa de Prueba, S\.A\..*123-45-6789/);
+  assert.match(hoja.getCell('A5').value, /Empresa de Prueba, S\.A\..*123-45-6789/);
   let fila = null;
   hoja.eachRow((r) => { if (r.getCell(1).value === 'Ingresos gravables') fila = r; });
   assert.equal(fila.getCell(2).value, 900000);
   assert.equal(fila.getCell(3).value, 1200000); // proyectado a diciembre con el promedio
   assert.ok(fila.getCell(2).font.bold, 'los totales van en negrita');
   const calendario = leido.getWorksheet('Calendario');
-  assert.ok(calendario.getCell('A8').value instanceof Date);
-  assert.equal(typeof calendario.getCell('D8').value, 'number');
+  assert.ok(calendario.getCell('A9').value instanceof Date);
+  assert.equal(typeof calendario.getCell('D9').value, 'number');
   assert.equal(nombreDeArchivo({ cliente: 'Á/B: S.A.', mesCorte: 9, anio: 2026 }), 'Preliminar AB S.A. septiembre 2026');
 });
 

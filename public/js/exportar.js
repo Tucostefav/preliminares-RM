@@ -6,11 +6,37 @@ import { MESES, fechaLarga, hoyLargo, segmentosDelResumen, ALCANCE } from './inf
 
 const ESTADOS = { vencida: 'Vencida', pendiente: 'Por pagar', proyectado: 'Proyectada', anual: 'Anual' };
 const NUMERO = '#,##0.00;(#,##0.00);"–"';
-const TINTA = 'FF0C1424';
-const GRIS = 'FF566072';
-const FONDO = 'FFEEF1F5';
-const LINEA = 'FFE2E6EC';
-const ACENTO = 'FF0E7C66';
+// Identidad de la firma: el azul y el rojo del logo de Rose Molina, texto casi negro.
+const TINTA = 'FF111111';
+const GRIS = 'FF5A5F6E';
+const AZUL = 'FF0000B8';
+const FONDO = 'FFEDEEF9';
+const LINEA = 'FFE3E4EE';
+// Franja roja y azul bajo el membrete (PNG de 100 × 2 px que se estira al ancho de la hoja).
+const FRANJA = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAAACCAIAAAAhLe5EAAAAGklEQVR42mP8z0AYMDLsYBgFDAxMo0FAPAAA9L8BvGzbId8AAAAASUVORK5CYII=';
+const ALTO_LOGO = 58; // px
+
+// Ancho y alto de un PNG o JPG en base64, para no deformar el logo.
+function medidas(base64, extension) {
+  const b = atob(base64.slice(0, extension === 'png' ? 40 : base64.length));
+  const byte = (i) => b.charCodeAt(i);
+  if (extension === 'png') return { ancho: (byte(16) << 24 | byte(17) << 16 | byte(18) << 8 | byte(19)), alto: (byte(20) << 24 | byte(21) << 16 | byte(22) << 8 | byte(23)) };
+  for (let i = 2; i < b.length - 9;) {
+    if (byte(i) !== 0xFF) { i++; continue; }
+    const marca = byte(i + 1);
+    if (marca >= 0xC0 && marca <= 0xC3) return { alto: byte(i + 5) << 8 | byte(i + 6), ancho: byte(i + 7) << 8 | byte(i + 8) };
+    i += 2 + (byte(i + 2) << 8 | byte(i + 3));
+  }
+  return { ancho: 5, alto: 3 };
+}
+
+function imagenDelLogo(libro, logo) {
+  if (!libro._logo) {
+    const [, extension, base64] = (logo || '').match(/^data:image\/(png|jpeg);base64,(.+)$/) || [];
+    libro._logo = base64 ? { id: libro.addImage({ base64, extension }), ...medidas(base64, extension) } : { id: null };
+  }
+  return libro._logo;
+}
 const neto = (l) => l.saldoAPagar - l.saldoAFavor;
 const CONCEPTOS = {
   efectivo: 'Efectivo y bancos', inversiones: 'Inversiones', cuentasPorCobrar: 'Cuentas por cobrar',
@@ -39,28 +65,41 @@ function nuevaHoja(libro, d, nombre, titulo, anchos, { horizontal = false } = {}
       margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.7, header: 0.3, footer: 0.3 },
     },
     headerFooter: {
-      oddFooter: `&L&8&K566072${d.firma.nombre.replace(/&/g, '&&')} · Confidencial · Preparado para ${d.cliente.replace(/&/g, '&&')}&R&8&K566072Página &P de &N`,
+      oddFooter: `&L&8&K0000B8${d.firma.nombre.replace(/&/g, '&&')} · Confidencial · Preparado para ${d.cliente.replace(/&/g, '&&')}&R&8&K566072Página &P de &N`,
     },
   });
   hoja.columns = anchos.map((width) => ({ width }));
   const ultima = anchos.length;
-  const fila = (n, texto, fuente, alto) => {
+  const fila = (n, texto, fuente, { alto, derecha = false } = {}) => {
     hoja.mergeCells(n, 1, n, ultima);
     const c = hoja.getCell(n, 1);
     c.value = texto;
     c.font = { name: 'Calibri', ...fuente };
-    c.alignment = { vertical: 'middle' };
+    c.alignment = { vertical: 'middle', horizontal: derecha ? 'right' : 'left' };
     if (alto) hoja.getRow(n).height = alto;
   };
-  fila(1, d.firma.nombre, { size: 14, bold: true, color: { argb: TINTA } }, 22);
-  fila(2, d.firma.detalle || ' ', { size: 9, color: { argb: GRIS } });
-  fila(3, `INFORME PRELIMINAR DEL IMPUESTO SOBRE LA RENTA · ${titulo.toUpperCase()}`, { size: 9, bold: true, color: { argb: ACENTO } }, 20);
-  for (let c = 1; c <= ultima; c++) hoja.getCell(3, c).border = { bottom: { style: 'medium', color: { argb: TINTA } } };
+  // Membrete: logo a la izquierda y el tipo de documento a la derecha; sin logo, el nombre de la firma.
+  const logo = imagenDelLogo(libro, d.firma.logo);
+  const informe = 'INFORME PRELIMINAR DEL IMPUESTO SOBRE LA RENTA';
+  if (logo.id !== null) {
+    hoja.addImage(logo.id, { tl: { col: 0, row: 0.1 }, ext: { width: Math.round(ALTO_LOGO * logo.ancho / logo.alto), height: ALTO_LOGO } });
+    fila(1, informe, { size: 10, bold: true, color: { argb: AZUL } }, { alto: 18, derecha: true });
+    fila(2, titulo, { size: 12, bold: true, color: { argb: TINTA } }, { alto: 18, derecha: true });
+    fila(3, d.firma.detalle || ' ', { size: 8, color: { argb: GRIS } }, { alto: 14, derecha: true });
+  } else {
+    fila(1, d.firma.nombre, { size: 14, bold: true, color: { argb: TINTA } }, { alto: 20 });
+    fila(2, `${informe} · ${titulo.toUpperCase()}`, { size: 9, bold: true, color: { argb: AZUL } }, { alto: 18 });
+    fila(3, d.firma.detalle || ' ', { size: 8, color: { argb: GRIS } }, { alto: 14 });
+  }
+  hoja.getRow(4).height = 9;
+  const anchoPx = anchos.reduce((t, w) => t + Math.round(w * 7 + 5), 0);
+  if (!libro._franja) libro._franja = libro.addImage({ base64: FRANJA, extension: 'png' });
+  hoja.addImage(libro._franja, { tl: { col: 0, row: 3.45 }, ext: { width: anchoPx, height: 4 } });
   const { anio, mesCorte } = d.contexto;
-  fila(4, `Contribuyente: ${d.cliente}    RUC: ${d.ruc || '—'}`, { size: 10, bold: true, color: { argb: TINTA } }, 18);
-  fila(5, `Corte: ${fechaLarga(new Date(Date.UTC(anio, mesCorte, 0)))}  ·  Emitido: ${hoyLargo()}  ·  Preparado por: ${d.usuario || d.firma.nombre}  ·  ${d.borrador ? 'BORRADOR para revisión' : 'Versión final'}`,
-    { size: 9, color: { argb: d.borrador ? 'FFB42318' : GRIS } });
-  return { hoja, siguiente: 7 };
+  fila(5, `Contribuyente: ${d.cliente}    RUC: ${d.ruc || '—'}`, { size: 10, bold: true, color: { argb: TINTA } }, { alto: 18 });
+  fila(6, `Corte: ${fechaLarga(new Date(Date.UTC(anio, mesCorte, 0)))}  ·  Emitido: ${hoyLargo()}  ·  Preparado por: ${d.usuario || d.firma.nombre}  ·  ${d.borrador ? 'BORRADOR para revisión' : 'Versión final'}`,
+    { size: 9, color: { argb: d.borrador ? 'FFC00000' : GRIS } });
+  return { hoja, siguiente: 8 };
 }
 
 function cabecera(hoja, n, titulos, alinear = []) {
@@ -69,7 +108,7 @@ function cabecera(hoja, n, titulos, alinear = []) {
     const c = r.getCell(i + 1);
     c.value = t;
     c.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TINTA } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL } };
     c.alignment = { vertical: 'middle', horizontal: alinear[i] || (i === 0 ? 'left' : 'right'), wrapText: true, indent: i === 0 ? 1 : 0 };
   });
   r.height = 30;
@@ -94,7 +133,7 @@ function filaDatos(hoja, n, valores, tipo = '', { columnas = valores.length } = 
     if (tipo === 'total') borde.top = { style: 'thin', color: { argb: TINTA } };
     if (tipo === 'final') {
       borde.top = { style: 'thin', color: { argb: TINTA } };
-      borde.bottom = { style: 'double', color: { argb: TINTA } };
+      borde.bottom = { style: 'double', color: { argb: AZUL } };
     }
     if (tipo === 'seccion') {
       c.font = { name: 'Calibri', size: 9, bold: true, color: { argb: GRIS } };
@@ -109,8 +148,8 @@ function titulo(hoja, n, texto, columnas) {
   hoja.mergeCells(n, 1, n, columnas);
   const c = hoja.getCell(n, 1);
   c.value = texto;
-  c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: TINTA } };
-  for (let i = 1; i <= columnas; i++) hoja.getCell(n, i).border = { bottom: { style: 'thin', color: { argb: TINTA } } };
+  c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: AZUL } };
+  for (let i = 1; i <= columnas; i++) hoja.getCell(n, i).border = { bottom: { style: 'thin', color: { argb: AZUL } } };
   hoja.getRow(n).height = 20;
   return n + 1;
 }
@@ -147,10 +186,6 @@ export function libroDelPreliminar(ExcelJS, d) {
   // Resumen
   {
     const { hoja, siguiente } = nuevaHoja(libro, d, 'Resumen', 'Resumen', [58, 16, 18]);
-    if (d.firma.logo) {
-      const [, extension, base64] = d.firma.logo.match(/^data:image\/(png|jpeg);base64,(.+)$/) || [];
-      if (base64) hoja.addImage(libro.addImage({ base64, extension }), { tl: { col: 2.05, row: 0.15 }, ext: { width: 150, height: 40 } });
-    }
     let n = titulo(hoja, siguiente, 'Resumen ejecutivo', 3);
     n = parrafo(hoja, n + 1, segmentosDelResumen(d), 3, { alto: 96 });
     n = cabecera(hoja, n + 1, ['Cifras principales', 'Situación', 'Monto (B/.)']);
@@ -209,7 +244,7 @@ export function libroDelPreliminar(ExcelJS, d) {
     filaDatos(hoja, n, [`Total a pagar hasta el 31 de marzo de ${anio + 1}`, '', '', cal.totalHastaDeclaracion, ''], 'final');
     hoja.mergeCells(n, 1, n, 3);
     // La observación va separada del monto, que está alineado a la derecha.
-    hoja.getColumn(5).eachCell((c, fila) => { if (fila > siguiente) c.alignment = { ...c.alignment, indent: 2 }; });
+    hoja.getColumn(5).eachCell((c, fila) => { if (fila >= siguiente) c.alignment = { ...c.alignment, horizontal: 'left', indent: 2 }; });
   }
 
   // Determinación del impuesto

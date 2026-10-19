@@ -103,7 +103,10 @@ $('formClave').addEventListener('submit', async (e) => {
 let logo = null;
 
 function pintarLogo() {
-  $('logoVista').innerHTML = logo ? `<img src="${logo}" alt="Logo de la firma">` : '<span>Sin logo</span>';
+  // Sin logo propio, los informes llevan el de Rose Molina.
+  $('logoVista').innerHTML = logo
+    ? `<img src="${logo}" alt="Logo de la firma">`
+    : '<img src="/img/logo-rose-molina.png" alt="Logo de Rose Molina"><small>Predeterminado</small>';
   $('quitarLogo').hidden = !logo;
 }
 

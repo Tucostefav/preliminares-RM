@@ -215,7 +215,7 @@ app.delete('/api/usuarios/:id', soloAdmin, conBase(async (req, res) => {
 
 // Datos de la firma para el membrete de los informes
 
-const FIRMA_INICIAL = { nombre: 'RM', detalle: '', logo: null };
+const FIRMA_INICIAL = { nombre: 'Rose Molina', detalle: '', logo: null };
 const LOGO = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
 
 app.get('/api/firma', atrapar(async (_req, res) => {

@@ -20,7 +20,7 @@ let hayBase = false;
 let filtro = '';
 let informe = null; // lo que se está viendo, para exportarlo
 let usuarioActual = '';
-let firma = { nombre: 'RM', detalle: '', logo: null }; // membrete de los informes
+let firma = { nombre: 'Rose Molina', detalle: '', logo: null }; // membrete de los informes
 
 const FILAS = [
   ['Patrimonio', null],
@@ -645,10 +645,26 @@ $('tablaHistorial').addEventListener('click', async (e) => {
   }
 });
 
+// Membrete de los informes. Si un administrador no subió otro logo, se usa el de Rose Molina, leído como
+// data URL porque el Excel necesita la imagen en base64.
+async function cargarFirma() {
+  const [f, predeterminado] = await Promise.all([
+    api('/api/firma').catch(() => firma),
+    fetch('/img/logo-rose-molina.png').then((r) => (r.ok ? r.blob() : null)).then((b) => b && new Promise((listo) => {
+      const lector = new FileReader();
+      lector.onload = () => listo(lector.result);
+      lector.onerror = () => listo(null);
+      lector.readAsDataURL(b);
+    })).catch(() => null),
+  ]);
+  firma = { ...f, logo: f.logo || predeterminado };
+  if (ultimo) prepararInforme();
+}
+
 cargarSesion()
   .then(async ({ baseDeDatos, nombre }) => {
     usuarioActual = nombre === 'Local' ? '' : nombre;
-    api('/api/firma').then((f) => { firma = f; }).catch(() => {});
+    cargarFirma();
     if (!baseDeDatos) return;
     hayBase = true;
     for (const id of ['historial', 'irHistorial', 'expedienteEstado', 'guardarBorrador']) $(id).classList.remove('oculto');

@@ -85,9 +85,11 @@ En producción la app no abre si no hay ni `APP_PASSWORD` ni usuarios en la base
 
 ## Exportar
 
-Los dos informes llevan el membrete de la firma. Un administrador lo llena en **Usuarios → Datos de la
-firma**: nombre, una línea de contacto (dirección, teléfono, correo) y el logo en PNG o JPG. Sin datos,
-el membrete dice "RM".
+Los dos informes llevan la identidad de Rose Molina: el logo (`public/img/logo-rose-molina.png`, con
+fondo transparente), una franja roja y azul bajo el membrete y el azul del logo en títulos, encabezados
+de tabla y el total final. Un administrador puede cambiar el nombre, agregar una línea de contacto
+(dirección, teléfono, correo) o subir otro logo en **Usuarios → Datos de la firma**; si no sube uno, se
+usa el de Rose Molina.
 
 - **PDF** abre la impresión del navegador con un informe en tamaño carta: portada con membrete y datos
   del cliente, resumen ejecutivo, calendario de obligaciones, determinación del impuesto, base de la

@@ -19,16 +19,16 @@ const neto = (l) => l.saldoAPagar - l.saldoAFavor;
 const iniciales = (nombre) => String(nombre).trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('');
 
 function membrete(firma, titulo) {
+  // El logo ya trae el nombre de la firma; sin logo se escribe el nombre junto a un monograma.
   const marca = firma.logo
-    ? `<img class="inf-logo" src="${firma.logo}" alt="">`
-    : `<span class="inf-monograma">${escapar(iniciales(firma.nombre) || 'RM')}</span>`;
+    ? `<img class="inf-logo" src="${firma.logo}" alt="${escapar(firma.nombre)}">`
+    : `<span class="inf-monograma">${escapar(iniciales(firma.nombre) || 'RM')}</span><div><strong>${escapar(firma.nombre)}</strong></div>`;
   return `
     <header class="inf-membrete">
-      <div class="inf-firma">${marca}
-        <div><strong>${escapar(firma.nombre)}</strong>${firma.detalle ? `<span>${escapar(firma.detalle)}</span>` : ''}</div>
-      </div>
-      <div class="inf-tipo"><span>${escapar(titulo)}</span><span>Emitido el ${hoyLargo()}</span></div>
-    </header>`;
+      <div class="inf-firma">${marca}</div>
+      <div class="inf-tipo"><span>${escapar(titulo)}</span><span>Emitido el ${hoyLargo()}</span>${firma.detalle ? `<em>${escapar(firma.detalle)}</em>` : ''}</div>
+    </header>
+    <div class="inf-franja" aria-hidden="true"></div>`;
 }
 
 function tabla(cabeceras, filas, clase = '') {
@@ -202,8 +202,8 @@ export function informeHtml(d) {
 export function estiloDePagina({ firma, cliente }) {
   const texto = (t) => JSON.stringify(String(t).replace(/[\n\r]/g, ' '));
   return `@page {
-    @bottom-left { content: ${texto(`${firma.nombre} · Confidencial · Preparado para ${cliente}`)}; font: 500 7.5pt 'Geist', sans-serif; color: #8A93A3; }
-    @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 500 7.5pt 'Geist', sans-serif; color: #8A93A3; }
+    @bottom-left { content: ${texto(`${firma.nombre} · Confidencial · Preparado para ${cliente}`)}; font: 500 7.5pt 'Geist', sans-serif; color: #5A5F6E; border-top: 0.75pt solid #0000B8; padding-top: 4pt; vertical-align: top; }
+    @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 600 7.5pt 'Geist', sans-serif; color: #0000B8; border-top: 0.75pt solid #0000B8; padding-top: 4pt; vertical-align: top; }
     @top-right { content: ${texto(`Informe preliminar ISR · ${cliente}`)}; font: 500 7.5pt 'Geist', sans-serif; color: #8A93A3; }
   }
   @page :first { @top-right { content: none; } }`;
