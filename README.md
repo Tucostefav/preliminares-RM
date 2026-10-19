@@ -28,6 +28,7 @@ resultados que el usuario decide guardar en el historial.
 | `public/js/lector.js` | Lee el balance de prueba, toma solo auxiliares y normaliza signos |
 | `public/js/motor.js` | Renta gravable (normal y CAIR), impuesto causado, estimado, complementario y aviso de operación |
 | `public/js/proyeccion.js` | Extiende el acumulado a los meses siguientes |
+| `public/js/calendario.js` | Calendario de pagos con las fechas legales y análisis de si aplica el CAIR |
 | `public/js/declaracion.js` | Lee el PDF de la declaración del año anterior (renglones del formulario de la DGI) |
 | `public/vendor/pdfjs/` | pdf.js 4.10.38 (renombrado de .mjs a .js porque Hostinger no entrega .mjs) para leer el PDF en el navegador (licencia Apache 2.0) |
 | `public/js/app.js` | Interfaz e historial |
@@ -71,8 +72,12 @@ En producción la app no abre si falta `APP_PASSWORD`, porque maneja datos de cl
 - Arrastre de pérdidas limitado al 50 % de la renta neta gravable del año.
 - Impuesto estimado pagado en tres partidas (30 de junio, 30 de septiembre y 31 de diciembre); al corte
   solo cuentan las partidas vencidas.
-- Impuesto complementario (10 % de la utilidad después del impuesto) y aviso de operación (2 % del
-  patrimonio, mínimo B/. 100 y máximo B/. 60.000) se muestran aparte.
+- Impuesto complementario (10 % sobre el 40 % de la utilidad después del impuesto) y aviso de operación
+  (2 % del patrimonio, mínimo B/. 100 y máximo B/. 60.000) se muestran aparte.
+- Calendario: partidas del estimado el 30 de junio, 30 de septiembre y 31 de diciembre; saldo del ISR y
+  aviso de operación el 31 de marzo del año siguiente; complementario el 30 de junio del año siguiente;
+  tasa única el 15 de enero o el 15 de julio según la inscripción de la sociedad. El saldo a favor
+  proyectado se abona al estimado del año siguiente.
 
 ## Límites conocidos
 

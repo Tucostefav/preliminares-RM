@@ -2,6 +2,7 @@ import { buscarHojaBalance, leerTotalesReportados, aNumero } from './lector.js';
 import { proyectar } from './proyeccion.js';
 import { PLANES_DE_CUENTAS } from './config.js';
 import { lineasDePdf, leerDeclaracion } from './declaracion.js';
+import { calendarioDePagos, analizarCAIR } from './calendario.js';
 
 const $ = (id) => document.getElementById(id);
 const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -51,10 +52,8 @@ const FILAS = [
   ['Impuesto estimado pagado', (r) => r.liquidacion.estimadoPagado],
   ['Retenciones y créditos', (r) => r.liquidacion.retenciones],
   ['Saldo a favor del año anterior', (r) => r.liquidacion.saldoAFavorAnterior],
-  ['Impuesto por pagar', (r) => r.liquidacion.saldoAPagar, 'destacado'],
-  ['Saldo a favor', (r) => r.liquidacion.saldoAFavor, 'total'],
-  ['Impuesto estimado para 2027', (r) => r.liquidacion.impuestoEstimadoSiguiente],
-  ['Cada partida del estimado (jun, sep, dic)', (r) => r.liquidacion.partidaEstimadoSiguiente],
+  ['Impuesto por pagar si el año cerrara ese mes', (r) => r.liquidacion.saldoAPagar, 'destacado'],
+  ['Saldo a favor si el año cerrara ese mes', (r) => r.liquidacion.saldoAFavor, 'total'],
   ['Otros tributos a prever', null],
   ['Impuesto complementario (10 % sobre el 40 % de la utilidad)', (r) => r.otros.impuestoComplementario],
   ['Impuesto de aviso de operación (2 % del patrimonio)', (r) => r.otros.avisoOperacion],
@@ -169,6 +168,7 @@ $('calcular').addEventListener('click', () => {
     arrastrePerdidas: dinero('arrastrePerdidas'),
     noAplicarCAIR: $('noAplicarCAIR').checked,
     tarifa: Number($('tarifa').value || 25) / 100,
+    partidas: declaracion?.resumen.partidas,
   };
   const ajustes = Object.fromEntries(['ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones'].map((k) => [k, dinero(k)]));
   ajustes.interesesExentos = $('interesesExentos').checked;
@@ -176,8 +176,9 @@ $('calcular').addEventListener('click', () => {
   const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
   const escenarios = proyectar(cuentas, anterior, ajustes, { ...opciones, mesesAProyectar: 3, plan: plan() });
   const cuadre = cuadrar(leerTotalesReportados(hojas, nombre), escenarios[0].resultado);
-  ultimo = { anterior, ajustes, ...opciones, plan: $('plan').value, escenarios, cuadre, declaracionAnterior: declaracion?.resumen };
-  mostrar(escenarios, cuadre, declaracion?.resumen);
+  const anio = declaracion?.periodo ? declaracion.periodo + 1 : new Date().getFullYear();
+  ultimo = { anterior, ajustes, ...opciones, anio, plan: $('plan').value, escenarios, cuadre, declaracionAnterior: declaracion?.resumen };
+  mostrar(escenarios, cuadre, declaracion?.resumen, { anio, mesCorte: opciones.mesCorte, anterior });
 });
 
 // Compara los totales del balance general y del estado de resultados con lo que da el balance de prueba.
@@ -198,21 +199,37 @@ $('plan').addEventListener('change', () => {
   }
 });
 
-function mostrar(escenarios, cuadre = [], anteriorDeclarado = null) {
+const fechaLarga = (f) => (f ? f.toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'Según inscripción');
+const ESTADOS = { vencida: 'Vencida', pendiente: 'Por pagar', proyectado: 'Proyectado', anual: 'Anual' };
+
+function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {}) {
   const actual = escenarios[0].resultado.liquidacion;
   const cierre = escenarios[escenarios.length - 1];
   const neto = (l) => l.saldoAPagar || -l.saldoAFavor;
-  const mesesRestantes = escenarios.length - 1;
-  // Lo que el cliente tiene que pagar desde hoy: partidas del estimado que faltan, el saldo de la
-  // declaración y los tributos que se pagan con ella (complementario y aviso de operación).
   const lc = cierre.resultado.liquidacion;
-  const pendiente = lc.saldoAPagar + (lc.estimadoPagado - actual.estimadoPagado) + cierre.resultado.otros.impuestoComplementario + cierre.resultado.otros.avisoOperacion;
+  const anio = contexto.anio || new Date().getFullYear();
+  const mesCorte = contexto.mesCorte || 9;
+  const anterior = contexto.anterior || {};
+  // El calendario solo tiene sentido con la proyección al 31 de diciembre.
+  const alCierre = cierre.mes === 'Diciembre';
+  const cal = alCierre ? calendarioDePagos(cierre.resultado, { anio, mesCorte, anterior }) : null;
+  const cair = analizarCAIR(cierre.resultado, undefined, anterior.tarifa);
 
   $('resumen').innerHTML = `
     <div><span>ISR si declarara hoy (corte ${escenarios[0].mes.toLowerCase()})</span><strong>${balboas(Math.abs(neto(actual)))}</strong><small>${neto(actual) < 0 ? 'a favor' : 'por pagar'}</small></div>
     <div><span>ISR proyectado al cierre (${cierre.mes.toLowerCase()})</span><strong>${balboas(Math.abs(neto(lc)))}</strong><small>${neto(lc) < 0 ? 'a favor' : 'por pagar'}</small></div>
-    <div><span>Total a preparar: partidas pendientes, saldo, complementario y aviso de operación</span><strong>${balboas(pendiente)}</strong>
-      <small>${mesesRestantes ? `${balboas(pendiente / mesesRestantes)} por mes hasta ${cierre.mes.toLowerCase()}` : ''}</small></div>`;
+    ${cal ? `<div><span>Pagos de aquí al 31 de marzo de ${anio + 1}</span><strong>${balboas(cal.totalHastaDeclaracion)}</strong>
+      <small>${cal.proximo ? `Próximo: ${fechaLarga(cal.proximo.fecha)}, ${balboas(cal.proximo.monto)}` : ''}</small></div>` : ''}`;
+
+  $('calendario').innerHTML = cal
+    ? `<h3>Calendario de pagos</h3>
+      <div class="tabla-contenedor"><table>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Estado</th><th>Nota</th></tr></thead>
+        <tbody>${cal.pagos.map((x) => `<tr class="estado-${x.estado}"><td>${fechaLarga(x.fecha)}</td><td>${escapar(x.concepto)}</td>
+          <td>${balboas(x.monto)}</td><td>${ESTADOS[x.estado]}</td><td class="nota">${escapar(x.nota)}</td></tr>`).join('')}</tbody>
+      </table></div>`
+    : '<p class="ayuda">El calendario de pagos se arma cuando la proyección llega a diciembre.</p>';
+  $('cair').innerHTML = `<h3>¿Le aplica el CAIR?</h3><p class="cair-${cair.nivel}">${escapar(cair.conclusion)}</p>`;
 
   const cab = `<thead><tr><th>Concepto</th>${escenarios.map((e) => `<th>${e.mes}<small>${e.tipo}</small></th>`).join('')}</tr></thead>`;
   const cuerpo = FILAS.map(([nombre, f, clase]) =>
@@ -229,11 +246,9 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null) {
     <ul>
       ${cuadre.map((c) => `<li class="${c.cuadra ? 'ok' : 'error'}">${c.nombre}: ${c.cuadra ? 'cuadra' : 'NO cuadra'} con la hoja "${escapar(c.hoja)}" (${balboas(c.reportado)} reportado, ${balboas(c.calculado)} según el balance de prueba).</li>`).join('')}
       ${anteriorDeclarado ? `<li>Comparado con lo declarado el año anterior: ingresos gravables ${balboas(anteriorDeclarado.ingresosGravables)} contra ${balboas(cr.ingresos.ingresosGravables)} proyectados; impuesto causado ${balboas(anteriorDeclarado.impuestoCausado)} contra ${balboas(cr.liquidacion.impuestoCausado)}.</li>` : ''}
-      <li>Método al corte: ${r.renta.metodo === 'CAIR' ? 'CAIR, porque el 4,67 % de los ingresos supera la renta normal' : 'normal'}${r.renta.aplicaCAIR ? '' : ' (los ingresos gravables no superan B/. 1.500.000, el CAIR no aplica)'}.
-        ${cr.renta.metodo !== r.renta.metodo ? ` Al cierre cambia a ${cr.renta.metodo}.` : ''}</li>
       <li>Partidas del impuesto estimado vencidas al corte: ${r.liquidacion.partidasVencidas} de 3.</li>
       ${r.noDeducibles.length ? `<li>Gastos excluidos por no deducibles: ${r.noDeducibles.map((n) => `${n.codigo} ${n.nombre} (${balboas(n.monto)})`).join('; ')}.</li>` : ''}
-      <li>El impuesto complementario y el de aviso de operación se muestran aparte; no se suman al impuesto por pagar de la declaración.</li>
+      <li>El impuesto complementario y el de aviso de operación se muestran aparte en la tabla; no se suman al impuesto sobre la renta, pero sí están en el calendario.</li>
       <li>La proyección extiende ingresos, costos, gastos y ajustes con el promedio mensual del acumulado; las cuentas de balance se dejan como están al corte.</li>
       <li>Es un cálculo preliminar para planeación y no reemplaza la declaración jurada definitiva.</li>
     </ul>`;
@@ -279,7 +294,9 @@ $('tablaHistorial').addEventListener('click', async (e) => {
       $('ruc').value = calculo.ruc;
       ultimo = null;
       $('guardar').classList.add('oculto');
-      mostrar(calculo.datos.escenarios, calculo.datos.cuadre, calculo.datos.declaracionAnterior);
+      mostrar(calculo.datos.escenarios, calculo.datos.cuadre, calculo.datos.declaracionAnterior, {
+        anio: calculo.datos.anio || calculo.anio, mesCorte: calculo.datos.mesCorte, anterior: calculo.datos.anterior,
+      });
     } else if (borrar && confirm('¿Borrar este cálculo del historial?')) {
       await api(`/api/calculos/${borrar}`, { method: 'DELETE' });
       await cargarHistorial();

@@ -66,3 +66,14 @@ label.casilla { flex-direction: row; align-items: center; gap: 8px; align-self: 
 .declaracion dd { margin: 0; font-variant-numeric: tabular-nums; }
 .declaracion .aviso { color: #8a5a00; margin: 8px 0 0; }
 input.leido { background: #eef6ee; }
+.bloque { margin-bottom: 20px; }
+h3 { font-size: 16px; margin: 16px 0 8px; }
+#calendario td.nota { white-space: normal; color: var(--suave); font-size: 13px; text-align: left; min-width: 220px; }
+#calendario td:nth-child(4) { text-align: left; }
+#calendario th:nth-child(2), #calendario td:nth-child(2) { text-align: left; white-space: normal; }
+#calendario tr.estado-vencida td { color: var(--suave); }
+#calendario tr.estado-pendiente td:nth-child(3) { font-weight: 700; color: var(--acento); }
+.cair-no, .cair-neutro { border-left: 4px solid var(--ok); padding: 8px 12px; background: #eef6ee; }
+.cair-riesgo { border-left: 4px solid #c58a00; padding: 8px 12px; background: #fdf6e3; }
+.cair-si { border-left: 4px solid var(--error); padding: 8px 12px; background: #fbeceb; }
+#calendario th:nth-child(4), #calendario th:nth-child(5) { text-align: left; }
