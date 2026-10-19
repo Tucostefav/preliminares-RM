@@ -18,7 +18,7 @@
       <span class="marca-sub">Impuesto sobre la renta · Panamá</span>
     </div>
     <nav class="barra-acciones">
-      <a href="#historial" id="irHistorial" class="enlace oculto">Historial</a>
+      <a href="#historial" id="irHistorial" class="enlace oculto">Preliminares</a>
       <a href="usuarios.html" id="irUsuarios" class="enlace oculto">Usuarios</a>
       <a href="usuarios.html#cuenta" id="cuenta" class="cuenta oculto"><span class="avatar" id="avatar"></span><span id="usuarioNombre"></span></a>
       <button type="button" id="salir" class="enlace" hidden>Salir</button>
@@ -27,6 +27,13 @@
 
   <div class="app">
     <aside class="expediente" aria-label="Datos del cálculo">
+      <div class="expediente-estado oculto" id="expedienteEstado">
+        <div class="expediente-estado-texto">
+          <span class="sello-estado nuevo" id="estadoPreliminar">Nuevo</span>
+          <span id="estadoTexto">Sin guardar</span>
+        </div>
+        <button type="button" class="enlace-boton" id="nuevoPreliminar">Empezar otro</button>
+      </div>
       <section class="bloque-form">
         <h2 class="rotulo">Cliente</h2>
         <label class="campo">Razón social <input id="cliente" placeholder="Se llena con la declaración" autocomplete="off"></label>
@@ -89,7 +96,8 @@
 
       <div class="accion-principal">
         <button id="calcular" class="boton">Calcular</button>
-        <p class="privacidad">El balance se lee en este navegador. Solo se guarda lo que pases al historial.</p>
+        <button id="guardarBorrador" class="boton-sec boton-ancho oculto">Guardar borrador</button>
+        <p class="privacidad" id="privacidad">El balance se lee en este navegador y no se sube al servidor.</p>
       </div>
     </aside>
 
@@ -111,7 +119,7 @@
             <h1 id="cabeceraCliente">Resultado</h1>
           </div>
           <div class="acciones">
-            <button id="guardar" class="boton-sec oculto">Guardar en el historial</button>
+            <button id="terminar" class="boton-sec boton-acento oculto">Terminar preliminar</button>
             <button id="imprimir" class="boton-sec">Imprimir o PDF</button>
           </div>
         </header>
@@ -143,7 +151,14 @@
       </section>
 
       <section id="historial" class="panel oculto">
-        <div class="panel-cab"><h2>Historial</h2><p class="panel-sub">Cálculos guardados en la base de datos.</p></div>
+        <div class="panel-cab panel-cab-fila">
+          <div><h2>Preliminares</h2><p class="panel-sub">Borradores en curso y preliminares terminados. Ábrelos para seguir o ajustar.</p></div>
+          <div class="segmentos" id="filtro" role="group" aria-label="Filtrar preliminares">
+            <button type="button" data-filtro="" aria-pressed="true">Todos</button>
+            <button type="button" data-filtro="borrador" aria-pressed="false">Borradores</button>
+            <button type="button" data-filtro="terminado" aria-pressed="false">Terminados</button>
+          </div>
+        </div>
         <div class="tabla-contenedor"><table id="tablaHistorial" class="tabla"></table></div>
       </section>
     </main>

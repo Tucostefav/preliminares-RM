@@ -27,6 +27,14 @@ export async function conectar() {
   return pool;
 }
 
+async function asegurarColumna(pool, tabla, columna, definicion) {
+  const [filas] = await pool.query(
+    'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+    [tabla, columna],
+  );
+  if (!filas.length) await pool.query(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion}`);
+}
+
 async function crearTablas(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clientes (
@@ -70,42 +78,67 @@ async function crearTablas(pool) {
       KEY por_usuario (usuario_id),
       CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     ) CHARACTER SET utf8mb4`);
-  // Instalaciones anteriores: el historial no tenía quién guardó cada cálculo.
-  const [columnas] = await pool.query(
-    "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'calculos' AND column_name = 'usuario_id'",
+  // Columnas que se agregaron después: quién guardó, borradores y última edición.
+  await asegurarColumna(pool, 'calculos', 'usuario_id', 'INT NULL');
+  await asegurarColumna(pool, 'calculos', 'estado', "VARCHAR(20) NOT NULL DEFAULT 'terminado'");
+  await asegurarColumna(pool, 'calculos', 'actualizado', 'TIMESTAMP NULL');
+  await asegurarColumna(pool, 'calculos', 'actualizado_por', 'INT NULL');
+  // Un borrador puede guardarse antes de calcular, sin impuestos todavía.
+  const [[hoy]] = await pool.query(
+    "SELECT is_nullable AS nulo FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'calculos' AND column_name = 'impuesto_hoy'",
   );
-  if (!columnas.length) await pool.query('ALTER TABLE calculos ADD COLUMN usuario_id INT NULL');
+  if (hoy?.nulo === 'NO') {
+    await pool.query('ALTER TABLE calculos MODIFY impuesto_hoy DECIMAL(16,2) NULL, MODIFY impuesto_cierre DECIMAL(16,2) NULL');
+  }
 }
 
-export async function guardarCalculo({ cliente, ruc, anio, mesCorte, impuestoHoy, impuestoCierre, datos, usuarioId = null }) {
+async function idDeCliente(cliente, ruc) {
   await pool.query(
     'INSERT INTO clientes (nombre, ruc) VALUES (?, ?) ON DUPLICATE KEY UPDATE nombre = VALUES(nombre)',
     [cliente, ruc],
   );
-  const [[{ id: clienteId }]] = await pool.query('SELECT id FROM clientes WHERE ruc = ?', [ruc]);
+  const [[{ id }]] = await pool.query('SELECT id FROM clientes WHERE ruc = ?', [ruc]);
+  return id;
+}
+
+// Un preliminar es un borrador o un cálculo terminado; los dos se pueden volver a abrir y ajustar.
+export async function guardarCalculo({ cliente, ruc, anio, mesCorte, estado = 'terminado', impuestoHoy = null, impuestoCierre = null, datos, usuarioId = null }) {
+  const clienteId = await idDeCliente(cliente, ruc);
   const [res] = await pool.query(
-    'INSERT INTO calculos (cliente_id, anio, mes_corte, impuesto_hoy, impuesto_cierre, datos, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [clienteId, anio, mesCorte, impuestoHoy, impuestoCierre, JSON.stringify(datos), usuarioId],
+    `INSERT INTO calculos (cliente_id, anio, mes_corte, estado, impuesto_hoy, impuesto_cierre, datos, usuario_id, actualizado, actualizado_por)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+    [clienteId, anio, mesCorte, estado, impuestoHoy, impuestoCierre, JSON.stringify(datos), usuarioId, usuarioId],
   );
   return res.insertId;
 }
 
-export async function listarCalculos(limite = 50) {
+export async function actualizarCalculo(id, { cliente, ruc, anio, mesCorte, estado, impuestoHoy = null, impuestoCierre = null, datos, usuarioId = null }) {
+  const clienteId = await idDeCliente(cliente, ruc);
+  const [res] = await pool.query(
+    `UPDATE calculos SET cliente_id = ?, anio = ?, mes_corte = ?, estado = ?, impuesto_hoy = ?, impuesto_cierre = ?, datos = ?,
+            actualizado = NOW(), actualizado_por = ? WHERE id = ?`,
+    [clienteId, anio, mesCorte, estado, impuestoHoy, impuestoCierre, JSON.stringify(datos), usuarioId, id],
+  );
+  return res.affectedRows > 0;
+}
+
+const CAMPOS_CALCULO = `c.id, cl.nombre AS cliente, cl.ruc, c.anio, c.mes_corte AS mesCorte, c.estado,
+       c.impuesto_hoy AS impuestoHoy, c.impuesto_cierre AS impuestoCierre, c.creado,
+       COALESCE(c.actualizado, c.creado) AS actualizado, u.nombre AS usuario, COALESCE(ua.nombre, u.nombre) AS actualizadoPor`;
+const DESDE_CALCULOS = `FROM calculos c JOIN clientes cl ON cl.id = c.cliente_id
+       LEFT JOIN usuarios u ON u.id = c.usuario_id LEFT JOIN usuarios ua ON ua.id = c.actualizado_por`;
+
+export async function listarCalculos({ estado = null, limite = 100 } = {}) {
   const [filas] = await pool.query(
-    `SELECT c.id, cl.nombre AS cliente, cl.ruc, c.anio, c.mes_corte AS mesCorte,
-            c.impuesto_hoy AS impuestoHoy, c.impuesto_cierre AS impuestoCierre, c.creado, u.nombre AS usuario
-       FROM calculos c JOIN clientes cl ON cl.id = c.cliente_id LEFT JOIN usuarios u ON u.id = c.usuario_id
-      ORDER BY c.creado DESC LIMIT ?`,
-    [limite],
+    `SELECT ${CAMPOS_CALCULO} ${DESDE_CALCULOS} ${estado ? 'WHERE c.estado = ?' : ''}
+      ORDER BY COALESCE(c.actualizado, c.creado) DESC LIMIT ?`,
+    estado ? [estado, limite] : [limite],
   );
   return filas;
 }
 
 export async function obtenerCalculo(id) {
-  const [[fila]] = await pool.query(
-    `SELECT c.*, cl.nombre AS cliente, cl.ruc FROM calculos c JOIN clientes cl ON cl.id = c.cliente_id WHERE c.id = ?`,
-    [id],
-  );
+  const [[fila]] = await pool.query(`SELECT ${CAMPOS_CALCULO}, c.datos ${DESDE_CALCULOS} WHERE c.id = ?`, [id]);
   return fila ? { ...fila, datos: JSON.parse(fila.datos) } : null;
 }
 

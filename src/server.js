@@ -18,7 +18,7 @@ const produccion = process.env.NODE_ENV === 'production';
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // Hostinger atiende HTTPS delante de la app
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '10mb' })); // un borrador lleva las hojas del balance de prueba
 
 // Usuario inicial (APP_USER / APP_PASSWORD). Con base de datos, la primera vez se crea como
 // administrador y desde ahí se manejan los usuarios en la app. Sin base de datos es el único usuario.
@@ -213,30 +213,52 @@ app.delete('/api/usuarios/:id', soloAdmin, conBase(async (req, res) => {
   res.status(204).end();
 }));
 
-// Historial de cálculos
+// Preliminares: borradores y cálculos terminados
+
+const ESTADOS = ['borrador', 'terminado'];
 
 app.get('/api/estado', (_req, res) => res.json({ baseDeDatos: db.baseLista() }));
 
-app.get('/api/calculos', conBase(async (_req, res) => res.json(await db.listarCalculos())));
+app.get('/api/calculos', conBase(async (req, res) => {
+  const estado = ESTADOS.includes(req.query.estado) ? req.query.estado : null;
+  res.json(await db.listarCalculos({ estado }));
+}));
 
 app.get('/api/calculos/:id', conBase(async (req, res) => {
   const calculo = await db.obtenerCalculo(Number(req.params.id));
-  calculo ? res.json(calculo) : res.status(404).json({ error: 'No existe ese cálculo.' });
+  calculo ? res.json(calculo) : res.status(404).json({ error: 'No existe ese preliminar.' });
 }));
 
+function leerPreliminar(req, res) {
+  const { cliente, ruc, anio, mesCorte, estado = 'terminado', impuestoHoy, impuestoCierre, datos } = req.body || {};
+  const error = (!cliente?.trim() || !ruc?.trim()) && 'Escribe el nombre y el RUC del cliente para guardar.'
+    || (!Number.isInteger(mesCorte) || mesCorte < 1 || mesCorte > 12) && 'Mes de corte inválido.'
+    || !ESTADOS.includes(estado) && 'Estado inválido.'
+    || (estado === 'terminado' && !Number.isFinite(impuestoHoy)) && 'Calcula antes de terminar el preliminar.';
+  if (error) {
+    res.status(400).json({ error });
+    return null;
+  }
+  const numero = (v) => (Number.isFinite(v) ? v : null);
+  return {
+    cliente: cliente.trim(), ruc: ruc.trim(), anio: Number(anio) || new Date().getFullYear(), mesCorte, estado,
+    impuestoHoy: numero(impuestoHoy), impuestoCierre: numero(impuestoCierre), datos: datos || {}, usuarioId: req.usuario.id,
+  };
+}
+
 app.post('/api/calculos', conBase(async (req, res) => {
-  const { cliente, ruc, anio, mesCorte, impuestoHoy, impuestoCierre, datos } = req.body || {};
-  if (!cliente?.trim() || !ruc?.trim()) return res.status(400).json({ error: 'Falta el nombre o el RUC del cliente.' });
-  if (!Number.isInteger(mesCorte) || mesCorte < 1 || mesCorte > 12) return res.status(400).json({ error: 'Mes de corte inválido.' });
-  const id = await db.guardarCalculo({
-    cliente: cliente.trim(), ruc: ruc.trim(), anio: Number(anio) || new Date().getFullYear(), mesCorte,
-    impuestoHoy: Number(impuestoHoy) || 0, impuestoCierre: Number(impuestoCierre) || 0, datos, usuarioId: req.usuario.id,
-  });
-  res.status(201).json({ id });
+  const preliminar = leerPreliminar(req, res);
+  if (preliminar) res.status(201).json({ id: await db.guardarCalculo(preliminar) });
+}));
+
+app.put('/api/calculos/:id', conBase(async (req, res) => {
+  const preliminar = leerPreliminar(req, res);
+  if (!preliminar) return;
+  (await db.actualizarCalculo(Number(req.params.id), preliminar)) ? res.json({ ok: true }) : res.status(404).json({ error: 'No existe ese preliminar.' });
 }));
 
 app.delete('/api/calculos/:id', conBase(async (req, res) => {
-  (await db.borrarCalculo(Number(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No existe ese cálculo.' });
+  (await db.borrarCalculo(Number(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No existe ese preliminar.' });
 }));
 
 app.use(express.static(publico));

@@ -10,7 +10,12 @@ const numero = new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximu
 const balboas = (v) => `B/. ${numero.format(v)}`;
 let hojas = null; // hojas del libro cargado: [{ nombre, filas }]
 let declaracion = null; // datos leídos del PDF de la declaración anterior
-let ultimo = null; // último cálculo mostrado, para guardarlo en el historial
+let ultimo = null; // último cálculo mostrado
+let archivos = { balance: null, declaracion: null }; // nombres de los archivos cargados
+let preliminar = { id: null, estado: null, actualizado: null, actualizadoPor: null }; // el que está abierto
+let sucio = false; // hay cambios sin guardar
+let hayBase = false;
+let filtro = '';
 
 const FILAS = [
   ['Patrimonio', null],
@@ -91,6 +96,7 @@ $('archivoBalance').addEventListener('change', async (e) => {
     hojas = libro.SheetNames.map((nombre) => ({ nombre, filas: XLSX.utils.sheet_to_json(libro.Sheets[nombre], { header: 1, defval: '' }) }));
     const { nombre, cuentas } = buscarHojaBalance(hojas, plan());
     const otras = hojas.length > 1 ? ` (hoja "${nombre}")` : '';
+    archivos.balance = archivo.name;
     mostrarEstado(`Leí ${cuentas.length} cuentas del balance de prueba de "${archivo.name}"${otras}.`, true);
   } catch (err) {
     hojas = null;
@@ -113,28 +119,7 @@ async function cargarPdfjs() {
 
 const moneda = (v) => (v ? balboas(v) : '—');
 
-$('archivoDeclaracion').addEventListener('change', async (e) => {
-  const archivo = e.target.files[0];
-  if (!archivo) return;
-  const estado = $('estadoDeclaracion');
-  try {
-    estado.textContent = 'Leyendo la declaración…';
-    estado.className = 'estado';
-    const pdfjs = await cargarPdfjs();
-    declaracion = leerDeclaracion(await lineasDePdf(pdfjs, new Uint8Array(await archivo.arrayBuffer())));
-    const d = declaracion;
-    const llenar = (id, valor) => {
-      $(id).value = valor ? String(Math.round(valor * 100) / 100) : '';
-      $(id).classList.add('leido');
-    };
-    llenar('impuestoEstimado', d.paraLiquidar.impuestoEstimado);
-    llenar('saldoAFavor', d.paraLiquidar.saldoAFavor);
-    llenar('arrastrePerdidas', d.paraLiquidar.arrastrePerdidas);
-    $('tarifa').value = String(d.tarifa * 100);
-    $('noAplicarCAIR').checked = d.aprobacionNoCAIR;
-    if (!$('cliente').value.trim() && d.razonSocial) $('cliente').value = d.razonSocial;
-    if (!$('ruc').value.trim() && d.ruc) $('ruc').value = d.dv ? `${d.ruc} DV ${d.dv}` : d.ruc;
-
+function mostrarDeclaracion(d) {
     const s = d.resumen;
     $('resumenDeclaracion').innerHTML = `
       <strong>${escapar(d.razonSocial || 'Declaración')} · periodo ${d.periodo || '¿?'} · tarifa ${d.tarifa * 100} %</strong>
@@ -153,7 +138,32 @@ $('archivoDeclaracion').addEventListener('change', async (e) => {
         <div><dt>Costos y gastos excluidos</dt><dd>${moneda(s.costosExentosYExtranjeros + s.gastosExcluidos)}</dd></div>
       </dl>
       ${d.avisos.map((a) => `<p class="aviso">${escapar(a)}</p>`).join('')}`;
-    $('resumenDeclaracion').classList.remove('oculto');
+  $('resumenDeclaracion').classList.remove('oculto');
+}
+
+$('archivoDeclaracion').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const estado = $('estadoDeclaracion');
+  try {
+    estado.textContent = 'Leyendo la declaración…';
+    estado.className = 'estado';
+    const pdfjs = await cargarPdfjs();
+    declaracion = leerDeclaracion(await lineasDePdf(pdfjs, new Uint8Array(await archivo.arrayBuffer())));
+    const d = declaracion;
+    archivos.declaracion = archivo.name;
+    const llenar = (id, valor) => {
+      $(id).value = valor ? String(Math.round(valor * 100) / 100) : '';
+      $(id).classList.add('leido');
+    };
+    llenar('impuestoEstimado', d.paraLiquidar.impuestoEstimado);
+    llenar('saldoAFavor', d.paraLiquidar.saldoAFavor);
+    llenar('arrastrePerdidas', d.paraLiquidar.arrastrePerdidas);
+    $('tarifa').value = String(d.tarifa * 100);
+    $('noAplicarCAIR').checked = d.aprobacionNoCAIR;
+    if (!$('cliente').value.trim() && d.razonSocial) $('cliente').value = d.razonSocial;
+    if (!$('ruc').value.trim() && d.ruc) $('ruc').value = d.dv ? `${d.ruc} DV ${d.dv}` : d.ruc;
+    mostrarDeclaracion(d);
     mostrarEstado(`Leí ${Object.keys(d.renglones).length} renglones de "${archivo.name}" y llené los datos de abajo.`, true, 'estadoDeclaracion');
     $('datosAnteriores').open = true;
   } catch (err) {
@@ -166,8 +176,13 @@ $('archivoDeclaracion').addEventListener('change', async (e) => {
 const dinero = (id) => aNumero($(id).value);
 const dineroOpcional = (id) => ($(id).value.trim() ? aNumero($(id).value) : undefined);
 
-$('calcular').addEventListener('click', () => {
-  if (!hojas) return mostrarEstado('Primero carga el balance de prueba.', false);
+$('calcular').addEventListener('click', () => calcular());
+
+function calcular({ desplazar = true } = {}) {
+  if (!hojas) {
+    mostrarEstado('Primero carga el balance de prueba.', false);
+    return false;
+  }
   const anterior = {
     impuestoEstimado: dineroOpcional('impuestoEstimado'),
     estimadoPagado: dineroOpcional('estimadoPagado'),
@@ -185,8 +200,9 @@ $('calcular').addEventListener('click', () => {
   const cuadre = cuadrar(leerTotalesReportados(hojas, nombre), escenarios[0].resultado);
   const anio = declaracion?.periodo ? declaracion.periodo + 1 : new Date().getFullYear();
   ultimo = { anterior, ajustes, ...opciones, anio, plan: $('plan').value, escenarios, cuadre, declaracionAnterior: declaracion?.resumen };
-  mostrar(escenarios, cuadre, declaracion?.resumen, { anio, mesCorte: opciones.mesCorte, crecimiento: opciones.crecimiento, anterior });
-});
+  mostrar(escenarios, cuadre, declaracion?.resumen, { anio, mesCorte: opciones.mesCorte, crecimiento: opciones.crecimiento, anterior }, desplazar);
+  return true;
+}
 
 // Compara los totales del balance general y del estado de resultados con lo que da el balance de prueba.
 function cuadrar(reportados, r) {
@@ -276,7 +292,7 @@ function lineaDePagos(cal, { anio, mesCorte, saldoAFavor }) {
   return `<svg viewBox="0 0 ${ancho} 236" role="img" aria-label="${escapar(resumen)}">${svg}</svg>`;
 }
 
-function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {}) {
+function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {}, desplazar = true) {
   const actual = escenarios[0].resultado.liquidacion;
   const cierre = escenarios[escenarios.length - 1];
   const neto = (l) => l.saldoAPagar || -l.saldoAFavor;
@@ -383,14 +399,11 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
       <li>La proyección suma, por cada mes que falta, el promedio mensual de los meses reales en ingresos, costos, gastos y ajustes; las cuentas de balance quedan como están al corte.</li>
       <li>Es un cálculo preliminar para planeación y no reemplaza la declaración jurada definitiva.</li>
     </ul>`;
-  if ($('guardar').dataset.disponible && ultimo) {
-    $('guardar').classList.remove('oculto');
-    $('guardar').textContent = 'Guardar en el historial';
-  }
   $('vacio').classList.add('oculto');
   $('resultados').classList.remove('oculto');
   // En escritorio los resultados ya están a la vista; en celular quedan debajo del formulario.
-  if ($('resultados').getBoundingClientRect().top > window.innerHeight * 0.6) {
+  pintarEstado();
+  if (desplazar && $('resultados').getBoundingClientRect().top > window.innerHeight * 0.6) {
     const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     $('resultados').scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'start' });
   }
@@ -399,40 +412,192 @@ function mostrar(escenarios, cuadre = [], anteriorDeclarado = null, contexto = {
 $('imprimir').addEventListener('click', () => window.print());
 window.addEventListener('beforeprint', () => { $('declaracionCompleta').open = true; });
 
-// Historial en la base de datos (solo si el servidor la tiene configurada)
 
-async function cargarHistorial() {
-  const calculos = await api('/api/calculos');
-  // Se guarda impuesto por pagar menos saldo a favor: negativo es a favor.
-  const neto = (v) => (v < 0 ? `${balboas(-v)}<small>a favor</small>` : `${balboas(v)}<small>por pagar</small>`);
-  const meses = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  $('tablaHistorial').innerHTML = calculos.length
-    ? `<thead><tr><th>Cliente</th><th>Corte</th><th>Al corte</th><th>Al cierre</th><th>Guardado</th><th></th></tr></thead><tbody>${calculos
-        .map((c) => `<tr><td><strong>${escapar(c.cliente)}</strong><small>${escapar(c.ruc)}</small></td><td>${meses[c.mesCorte]} ${c.anio}</td>
-          <td>${neto(Number(c.impuestoHoy))}</td><td>${neto(Number(c.impuestoCierre))}</td>
-          <td>${new Date(c.creado).toLocaleDateString('es-PA')}<small>${escapar(c.usuario || '—')}</small></td>
-          <td><button class="boton-sec" data-ver="${c.id}">Ver</button> <button class="boton-sec" data-borrar="${c.id}">Borrar</button></td></tr>`)
-        .join('')}</tbody>`
-    : '<tbody><tr><td>Todavía no hay cálculos guardados.</td></tr></tbody>';
-}
+// Preliminares guardados: borradores para seguir después y preliminares terminados que se pueden ajustar.
+// Se guardan los datos del formulario, las hojas del balance y lo leído de la declaración, así al
+// abrirlo se recalcula igual que si se hubieran vuelto a subir los archivos.
 
 const escapar = (t) => String(t).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+const CAMPOS = ['cliente', 'ruc', 'mesCorte', 'crecimiento', 'impuestoEstimado', 'estimadoPagado', 'saldoAFavor', 'tarifa',
+  'arrastrePerdidas', 'ingresosExentos', 'costosGastosExentos', 'otrosNoDeducibles', 'retenciones', 'plan'];
+const CASILLAS = ['noAplicarCAIR', 'interesesExentos'];
+const MESES = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fechaHora = (f) => new Date(f).toLocaleString('es-PA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+function leerFormulario() {
+  return {
+    valores: Object.fromEntries(CAMPOS.map((id) => [id, $(id).value])),
+    casillas: Object.fromEntries(CASILLAS.map((id) => [id, $(id).checked])),
+    leidos: CAMPOS.filter((id) => $(id).classList.contains('leido')),
+  };
+}
+
+function ponerFormulario({ valores = {}, casillas = {}, leidos = [] }) {
+  for (const id of CAMPOS) {
+    $(id).value = valores[id] ?? $(id).value;
+    $(id).classList.toggle('leido', leidos.includes(id));
+  }
+  for (const id of CASILLAS) if (id in casillas) $(id).checked = casillas[id];
+}
+
+function pintarEstado() {
+  if (!hayBase) return;
+  const chip = $('estadoPreliminar');
+  chip.textContent = preliminar.id ? (preliminar.estado === 'borrador' ? 'Borrador' : 'Terminado') : 'Nuevo';
+  chip.className = `sello-estado ${preliminar.id ? preliminar.estado : 'nuevo'}`;
+  $('estadoTexto').textContent = sucio
+    ? 'Cambios sin guardar'
+    : preliminar.id
+      ? `Guardado ${fechaHora(preliminar.actualizado)}${preliminar.actualizadoPor ? ` · ${preliminar.actualizadoPor}` : ''}`
+      : 'Sin guardar';
+  $('estadoTexto').className = sucio ? 'pendiente' : '';
+  const terminado = preliminar.estado === 'terminado';
+  $('terminar').classList.toggle('oculto', !ultimo);
+  $('terminar').disabled = terminado && !sucio;
+  $('terminar').textContent = terminado ? (sucio ? 'Guardar cambios' : 'Terminado') : 'Terminar preliminar';
+  $('guardarBorrador').textContent = terminado ? 'Guardar como borrador' : 'Guardar borrador';
+  $('guardarBorrador').disabled = Boolean(preliminar.id) && !sucio && !terminado;
+}
+
+function marcarSucio() {
+  sucio = true;
+  pintarEstado();
+}
+document.querySelector('.expediente').addEventListener('input', marcarSucio);
+document.querySelector('.expediente').addEventListener('change', marcarSucio);
+window.addEventListener('beforeunload', (e) => {
+  if (sucio) e.preventDefault();
+});
+
+const neto = (l) => l.saldoAPagar - l.saldoAFavor;
+
+async function guardar(estado) {
+  if (!$('cliente').value.trim() || !$('ruc').value.trim()) {
+    alert('Escribe el nombre y el RUC del cliente para guardar.');
+    return;
+  }
+  // Si ya se calculó, se recalcula con los datos actuales para que lo guardado coincida con el formulario.
+  if ((estado === 'terminado' || ultimo) && !calcular({ desplazar: false })) return;
+  const anio = ultimo?.anio || (declaracion?.periodo ? declaracion.periodo + 1 : new Date().getFullYear());
+  const cuerpo = {
+    cliente: $('cliente').value,
+    ruc: $('ruc').value,
+    anio,
+    mesCorte: Number($('mesCorte').value),
+    estado,
+    impuestoHoy: ultimo ? neto(ultimo.escenarios[0].resultado.liquidacion) : null,
+    impuestoCierre: ultimo ? neto(ultimo.escenarios[ultimo.escenarios.length - 1].resultado.liquidacion) : null,
+    datos: { version: 2, formulario: leerFormulario(), hojas, declaracion, archivos, calculado: Boolean(ultimo) },
+  };
+  const boton = estado === 'terminado' ? $('terminar') : $('guardarBorrador');
+  boton.disabled = true;
+  try {
+    if (preliminar.id) await api(`/api/calculos/${preliminar.id}`, { method: 'PUT', body: JSON.stringify(cuerpo) });
+    else preliminar.id = (await api('/api/calculos', { method: 'POST', body: JSON.stringify(cuerpo) })).id;
+    const guardado = await api(`/api/calculos/${preliminar.id}`);
+    preliminar = { id: guardado.id, estado: guardado.estado, actualizado: guardado.actualizado, actualizadoPor: guardado.actualizadoPor };
+    sucio = false;
+    history.replaceState(null, '', `?p=${preliminar.id}`);
+    await cargarHistorial();
+  } catch (err) {
+    alert(`No se pudo guardar: ${err.message}`);
+  }
+  boton.disabled = false;
+  pintarEstado();
+}
+
+$('guardarBorrador').addEventListener('click', () => guardar('borrador'));
+$('terminar').addEventListener('click', () => guardar('terminado'));
+$('nuevoPreliminar').addEventListener('click', () => {
+  if (sucio && !confirm('Tienes cambios sin guardar. ¿Empezar un preliminar nuevo de todos modos?')) return;
+  sucio = false;
+  location.assign('/');
+});
+
+async function abrirPreliminar(id) {
+  if (sucio && !confirm('Tienes cambios sin guardar. ¿Abrir otro preliminar de todos modos?')) return;
+  const p = await api(`/api/calculos/${id}`);
+  const d = p.datos || {};
+  preliminar = { id: p.id, estado: p.estado, actualizado: p.actualizado, actualizadoPor: p.actualizadoPor };
+  ultimo = null;
+  hojas = null;
+  declaracion = null;
+  if (d.version === 2) {
+    ponerFormulario(d.formulario || {});
+    hojas = d.hojas || null;
+    declaracion = d.declaracion || null;
+    archivos = d.archivos || { balance: null, declaracion: null };
+    for (const [clave, id, que] of [['balance', 'estadoBalance', hojas], ['declaracion', 'estadoDeclaracion', declaracion]]) {
+      if (que) mostrarEstado(`Guardado en el preliminar: "${archivos[clave] || 'archivo'}". Puedes subir otro para reemplazarlo.`, true, id);
+      else {
+        $(id).textContent = '';
+        $(id).closest('.zona').classList.remove('lista');
+      }
+    }
+    if (declaracion) mostrarDeclaracion(declaracion);
+    else $('resumenDeclaracion').classList.add('oculto');
+    if (d.calculado && hojas) calcular();
+    else {
+      $('resultados').classList.add('oculto');
+      $('vacio').classList.remove('oculto');
+    }
+  } else {
+    // Cálculos guardados antes de los borradores: solo traen el resultado, no los archivos.
+    // Para ajustarlos hay que volver a subir el balance y la declaración.
+    $('cliente').value = p.cliente;
+    $('ruc').value = p.ruc;
+    if (d.escenarios?.length) {
+      mostrar(d.escenarios, d.cuadre, d.declaracionAnterior, { anio: d.anio || p.anio, mesCorte: d.mesCorte, crecimiento: d.crecimiento, anterior: d.anterior }, false);
+    } else {
+      $('resultados').classList.add('oculto');
+      $('vacio').classList.remove('oculto');
+    }
+  }
+  sucio = false;
+  history.replaceState(null, '', `?p=${p.id}`);
+  pintarEstado();
+  await cargarHistorial();
+  window.scrollTo({ top: 0 });
+}
+
+async function cargarHistorial() {
+  const lista = await api(`/api/calculos${filtro ? `?estado=${filtro}` : ''}`);
+  // Se guarda impuesto por pagar menos saldo a favor: negativo es a favor.
+  const monto = (v) => (v === null ? '<span class="tenue">—</span><small>sin calcular</small>'
+    : Number(v) < 0 ? `${balboas(-v)}<small>a favor</small>` : `${balboas(Number(v))}<small>por pagar</small>`);
+  const vacio = { '': 'Todavía no hay preliminares guardados.', borrador: 'No hay borradores en curso.', terminado: 'No hay preliminares terminados.' };
+  $('tablaHistorial').innerHTML = lista.length
+    ? `<thead><tr><th>Cliente</th><th>Corte</th><th>Estado</th><th>Al corte</th><th>Al cierre</th><th>Última edición</th><th></th></tr></thead><tbody>${lista
+        .map((c) => `<tr class="${c.id === preliminar.id ? 'actual' : ''}"><td><strong>${escapar(c.cliente)}</strong><small>${escapar(c.ruc)}</small></td>
+          <td>${MESES[c.mesCorte]} ${c.anio}</td>
+          <td><span class="sello-estado ${c.estado}">${c.estado === 'borrador' ? 'Borrador' : 'Terminado'}</span></td>
+          <td>${monto(c.impuestoHoy)}</td><td>${monto(c.impuestoCierre)}</td>
+          <td>${fechaHora(c.actualizado)}<small>${escapar(c.actualizadoPor || '—')}</small></td>
+          <td><button class="boton-sec" data-abrir="${c.id}">${c.id === preliminar.id ? 'Abierto' : c.estado === 'borrador' ? 'Continuar' : 'Abrir'}</button>
+            <button class="boton-sec" data-borrar="${c.id}">Borrar</button></td></tr>`)
+        .join('')}</tbody>`
+    : `<tbody><tr><td class="tenue">${vacio[filtro]}</td></tr></tbody>`;
+}
+
+$('filtro').addEventListener('click', async (e) => {
+  const boton = e.target.closest('[data-filtro]');
+  if (!boton) return;
+  filtro = boton.dataset.filtro;
+  for (const b of $('filtro').children) b.setAttribute('aria-pressed', String(b === boton));
+  await cargarHistorial();
+});
 
 $('tablaHistorial').addEventListener('click', async (e) => {
-  const ver = e.target.dataset.ver;
-  const borrar = e.target.dataset.borrar;
+  const { abrir, borrar } = e.target.dataset;
   try {
-    if (ver) {
-      const calculo = await api(`/api/calculos/${ver}`);
-      $('cliente').value = calculo.cliente;
-      $('ruc').value = calculo.ruc;
-      ultimo = null;
-      $('guardar').classList.add('oculto');
-      mostrar(calculo.datos.escenarios, calculo.datos.cuadre, calculo.datos.declaracionAnterior, {
-        anio: calculo.datos.anio || calculo.anio, mesCorte: calculo.datos.mesCorte, crecimiento: calculo.datos.crecimiento, anterior: calculo.datos.anterior,
-      });
-    } else if (borrar && confirm('¿Borrar este cálculo del historial?')) {
+    if (abrir) await abrirPreliminar(Number(abrir));
+    else if (borrar && confirm('¿Borrar este preliminar? No se puede deshacer.')) {
       await api(`/api/calculos/${borrar}`, { method: 'DELETE' });
+      if (Number(borrar) === preliminar.id) {
+        preliminar = { id: null, estado: null, actualizado: null, actualizadoPor: null };
+        history.replaceState(null, '', '/');
+        pintarEstado();
+      }
       await cargarHistorial();
     }
   } catch (err) {
@@ -440,38 +605,15 @@ $('tablaHistorial').addEventListener('click', async (e) => {
   }
 });
 
-$('guardar').addEventListener('click', async () => {
-  if (!ultimo) return;
-  if (!$('cliente').value.trim() || !$('ruc').value.trim()) return alert('Escribe el nombre y el RUC del cliente para guardar.');
-  const { escenarios } = ultimo;
-  const neto = (l) => l.saldoAPagar - l.saldoAFavor;
-  try {
-    await api('/api/calculos', {
-      method: 'POST',
-      body: JSON.stringify({
-        cliente: $('cliente').value,
-        ruc: $('ruc').value,
-        anio: new Date().getFullYear(),
-        mesCorte: ultimo.mesCorte,
-        impuestoHoy: neto(escenarios[0].resultado.liquidacion),
-        impuestoCierre: neto(escenarios[escenarios.length - 1].resultado.liquidacion),
-        // Se guarda el resultado sin el detalle cuenta por cuenta
-        datos: { ...ultimo, escenarios: escenarios.map((e) => ({ ...e, resultado: { ...e.resultado, detalle: undefined } })) },
-      }),
-    });
-    $('guardar').textContent = 'Guardado';
-    await cargarHistorial();
-  } catch (err) {
-    alert(`No se pudo guardar: ${err.message}`);
-  }
-});
-
 cargarSesion()
   .then(async ({ baseDeDatos }) => {
     if (!baseDeDatos) return;
-    $('historial').classList.remove('oculto');
-    $('irHistorial').classList.remove('oculto');
-    $('guardar').dataset.disponible = 'si';
+    hayBase = true;
+    for (const id of ['historial', 'irHistorial', 'expedienteEstado', 'guardarBorrador']) $(id).classList.remove('oculto');
+    $('privacidad').textContent = 'El balance se lee en este navegador. Al guardar, sus cuentas quedan en la base para seguir después.';
+    pintarEstado();
+    const id = Number(new URLSearchParams(location.search).get('p'));
+    if (id) await abrirPreliminar(id).catch(() => history.replaceState(null, '', '/'));
     await cargarHistorial();
   })
   .catch(() => {}); // abierta como archivo estático, sin servidor

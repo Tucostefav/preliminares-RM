@@ -4,8 +4,8 @@ App web (Node.js) que calcula cómo quedaría hoy la declaración jurada de rent
 Panamá (DGI) a partir de su balance de prueba al corte y de los datos de su declaración del año anterior,
 y proyecta los meses que faltan para cerrar el año.
 
-El balance se lee en el navegador y no se sube al servidor. Solo se guardan en la base de datos los
-resultados que el usuario decide guardar en el historial.
+El balance se lee en el navegador. Solo llega a la base de datos cuando el usuario guarda el
+preliminar (borrador o terminado), para poder retomarlo después.
 
 ## Cómo se usa
 
@@ -78,7 +78,20 @@ En producción la app no abre si no hay ni `APP_PASSWORD` ni usuarios en la base
 - Las contraseñas se guardan cifradas (scrypt). La sesión dura 12 horas y vive en una cookie
   `HttpOnly`; al desactivar a alguien o cambiarle la contraseña se cierran sus sesiones.
 - Tras 5 intentos fallidos con el mismo usuario hay que esperar 15 minutos.
-- El historial muestra quién guardó cada cálculo.
+- La lista de preliminares muestra quién guardó y quién editó por última vez cada uno.
+
+## Borradores
+
+- **Guardar borrador** guarda el preliminar aunque falten archivos o no se haya calculado. Basta con el
+  nombre y el RUC del cliente.
+- Para seguir después se abre desde **Preliminares** (o con el enlace `?p=` que queda en la barra del
+  navegador). Se recuperan el formulario, el balance de prueba y lo leído de la declaración, y si ya se
+  había calculado se recalcula solo.
+- **Terminar preliminar** lo marca como terminado. Un terminado también se puede abrir y ajustar:
+  **Guardar cambios** lo deja terminado y **Guardar como borrador** lo devuelve a borrador.
+- Al guardar, las hojas del balance de prueba quedan en la base de datos (tabla `calculos`) para no
+  tener que volver a subirlas. El PDF no se guarda, solo los renglones leídos.
+- Si hay cambios sin guardar, la app avisa antes de salir o de abrir otro preliminar.
 - Si un administrador olvida su contraseña, otro administrador se la restablece. Si era el único,
   se borra su fila de la tabla `usuarios` en phpMyAdmin y se reinicia la app: al no haber ningún
   administrador activo, `APP_USER` vuelve a quedar como administrador con la contraseña de `APP_PASSWORD`.
