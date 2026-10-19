@@ -30,13 +30,14 @@ const ES_DEBITO = /^(debito|debitos|saldo debito|debe)$/;
 const ES_CREDITO = /^(credito|creditos|saldo credito|haber)$/;
 
 // Busca la fila de títulos. Si los títulos Débito/Crédito están en la fila siguiente
-// (como en QuickBooks), se usa el último par, que es el saldo ajustado.
+// (como en QuickBooks), se usa el último par, que es el saldo ajustado. QuickBooks a veces deja
+// sin título la columna de las cuentas: entonces es la primera columna con texto a la izquierda
+// de los débitos.
 function buscarEncabezado(filas) {
   for (let i = 0; i < Math.min(filas.length, 30); i++) {
     const celdas = filas[i].map(sinTildes);
     const codigo = celdas.findIndex((c) => /^(codigo|cuenta|cod\.?|codigo cuenta|cuenta contable|no\.? cuenta)$/.test(c));
-    const nombre = celdas.findIndex((c, j) => j !== codigo && /(nombre|descripcion|detalle)/.test(c));
-    if (codigo === -1 && nombre === -1) continue;
+    let nombre = celdas.findIndex((c, j) => j !== codigo && /(nombre|descripcion|detalle)/.test(c));
 
     const saldo = celdas.findIndex((c) => /(saldo final|nuevo saldo|saldo actual|saldo ajustado|saldo a )/.test(c) && !ES_DEBITO.test(c));
     const saldoSimple = celdas.findIndex((c) => c === 'saldo');
@@ -49,13 +50,21 @@ function buscarEncabezado(filas) {
       creditos = siguiente.flatMap((c, j) => (ES_CREDITO.test(c) ? [j] : []));
       if (debitos.length) filaDatos = i + 2;
     }
+    const conDebitoCredito = debitos.length > 0 && creditos.length > 0;
+    if (codigo === -1 && nombre === -1) {
+      if (!conDebitoCredito) continue;
+      const datos = filas.slice(filaDatos, filaDatos + 10);
+      nombre = Array.from({ length: Math.min(...debitos, ...creditos) }, (_, j) => j)
+        .find((j) => datos.some((f) => typeof f[j] === 'string' && /[a-z]/i.test(f[j]))) ?? -1;
+      if (nombre === -1) continue;
+    }
     const tieneSaldo = saldo !== -1 || saldoSimple !== -1;
-    if (!tieneSaldo && !(debitos.length && creditos.length)) continue;
+    if (!tieneSaldo && !conDebitoCredito) continue;
     return {
       filaDatos,
       codigo,
       nombre: nombre === -1 ? codigo : nombre,
-      saldo: debitos.length && creditos.length ? -1 : saldo !== -1 ? saldo : saldoSimple,
+      saldo: conDebitoCredito ? -1 : saldo !== -1 ? saldo : saldoSimple,
       debito: debitos.at(-1) ?? -1,
       credito: creditos.at(-1) ?? -1,
     };

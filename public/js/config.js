@@ -57,6 +57,8 @@ export const REGLAS_ACTIVO = [
 ];
 
 export const REGLAS_INGRESO = [
+  // Cuentas de ingresos que el propio catálogo marca como exentas, no gravables o de fuente extranjera.
+  { patron: /(exent|no gravab|no gravad|fuente extranjera|extraterritorial)/, concepto: 'ingresosNoGravables' },
   { patron: /(devoluc|descuentos? (en|sobre) ventas|rebaja)/, concepto: 'devoluciones' },
   { patron: /(interes|financier|rendimiento)/, concepto: 'ingresosFinancieros' },
   { patron: /(otros ingresos|ingresos? (no operacional|diversos|varios)|ganancia en venta|dividendo)/, concepto: 'otrosIngresos' },

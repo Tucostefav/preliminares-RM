@@ -42,7 +42,7 @@ const CONCEPTOS = {
   efectivo: 'Efectivo y bancos', inversiones: 'Inversiones', cuentasPorCobrar: 'Cuentas por cobrar',
   impuestoEstimadoPagado: 'Impuesto estimado pagado', inventarios: 'Inventarios', propiedadesPlantaEquipo: 'Propiedad, planta y equipo',
   intangibles: 'Intangibles', otrosActivos: 'Otros activos', pasivos: 'Pasivos', patrimonioContable: 'Patrimonio',
-  ingresosOperacion: 'Ingresos de operación', ingresosFinancieros: 'Ingresos financieros', otrosIngresos: 'Otros ingresos',
+  ingresosOperacion: 'Ingresos de operación', ingresosNoGravables: 'Ingresos exentos o no gravables', ingresosFinancieros: 'Ingresos financieros', otrosIngresos: 'Otros ingresos',
   devoluciones: 'Devoluciones y descuentos', costos: 'Costos', gastosGenerales: 'Gastos generales y administrativos',
   depreciacion: 'Depreciación y amortización', gastosFinancieros: 'Gastos financieros',
 };

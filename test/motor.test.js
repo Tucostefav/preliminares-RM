@@ -150,3 +150,25 @@ test('una sociedad sin actividad comercial no paga aviso de operación ni lo tie
   assert.ok(avisoEn(conAviso));
   assert.ok(!avisoEn(sinAviso));
 });
+
+test('lee el balance de QuickBooks con la columna de cuentas sin título y separa los ingresos no gravables', () => {
+  const filas = [
+    ['EMPRESA DE PRUEBA INC', '', '', '', '', '', ''],
+    ['Balance general ajustado', '', '', '', '', '', ''],
+    ['', 'Saldo sin ajustar', '', 'Ajustes', '', 'Saldo ajustado', ''],
+    ['', 'Débito', 'Crédito', 'Débito', 'Crédito', 'Débito', 'Crédito'],
+    ['10100 Banco', 50000, 0, 0, 0, 50000, 0],
+    ['23000 Cuentas por pagar', 0, 5000, 0, 0, 0, 5000],
+    ['Ganancias acumuladas', 0, 15000, 0, 0, 0, 15000],
+    ['40300 Ingresos No gravables', 0, 60000, 0, 0, 0, 60000],
+    ['40400 Servicios de asesoría', 0, 40000, 0, 0, 0, 40000],
+    ['6120 Honorarios', 70000, 0, 0, 0, 70000, 0],
+    ['TOTAL', 120000, 120000, 0, 0, 120000, 120000],
+  ];
+  const cuentas = leerBalanceDePrueba(filas);
+  assert.equal(cuentas.length, 6);
+  const r = liquidar(cuentas, {}, {}, { mes: 9 });
+  assert.equal(r.ingresos.ingresosBrutos, 100000);
+  assert.equal(r.ingresos.ingresosExentos, 60000);
+  assert.equal(r.ingresos.ingresosGravables, 40000);
+});

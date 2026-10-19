@@ -74,14 +74,16 @@ export function liquidar(cuentas, anterior = {}, ajustes = {}, { mes = 12, plan,
   const patrimonioNeto = totalActivos - pasivos;
 
   // Ingresos
-  const ingresosOperacion = v('ingresosOperacion');
+  // Las cuentas de ingresos exentos o no gravables forman parte de los ingresos brutos y se restan abajo.
+  const ingresosNoGravables = v('ingresosNoGravables');
+  const ingresosOperacion = v('ingresosOperacion') + ingresosNoGravables;
   const ingresosFinancieros = v('ingresosFinancieros');
   const otrosIngresos = v('otrosIngresos');
   const ingresosBrutos = ingresosOperacion + ingresosFinancieros + otrosIngresos;
   const devoluciones = v('devoluciones');
   // Exentos, no gravables y de fuente extranjera. Los intereses de depósitos en bancos locales
   // son exentos (art. 708 C.F.), así que se excluyen por defecto.
-  const ingresosExentos = a('ingresosExentos') + (ajustes.interesesExentos ? ingresosFinancieros : 0);
+  const ingresosExentos = a('ingresosExentos') + ingresosNoGravables + (ajustes.interesesExentos ? ingresosFinancieros : 0);
   const ingresosGravables = Math.max(0, ingresosBrutos - devoluciones - ingresosExentos);
 
   // Costos y gastos deducibles (sin los no deducibles detectados por nombre)
