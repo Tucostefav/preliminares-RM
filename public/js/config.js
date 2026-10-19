@@ -52,7 +52,7 @@ export const REGLAS_ACTIVO = [
   { patron: /(impuesto estimado|isr pagado|anticipo.*renta|renta.*anticipad|renta.*estimad|credito fiscal.*renta|retencion.*renta)/, concepto: 'impuestoEstimadoPagado' },
   { patron: /(cuentas? por cobrar|clientes|deudores|documentos por cobrar|prestamos? por cobrar|cxc|cuentas malas|incobrable)/, concepto: 'cuentasPorCobrar' },
   { patron: /(inventario|mercancia|materia prima|productos? terminados?)/, concepto: 'inventarios' },
-  { patron: /(propiedad|planta|equipo|mobiliario|vehiculo|edificio|terreno|mejoras|depreciacion)/, concepto: 'propiedadesPlantaEquipo' },
+  { patron: /(propiedad|planta|equipo|maquinaria|mobiliario|muebles|enseres|vehiculo|edificio|terreno|mejoras|depreciacion|dep\.? acum)/, concepto: 'propiedadesPlantaEquipo' },
   { patron: /(intangible|plusvalia|licencia|software|marca|amortizacion)/, concepto: 'intangibles' },
 ];
 

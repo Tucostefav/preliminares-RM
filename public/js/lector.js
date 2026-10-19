@@ -26,8 +26,9 @@ export function aNumero(valor) {
   return Number.isFinite(n) ? (negativo ? -n : n) : 0;
 }
 
-const ES_DEBITO = /^(debito|debitos|saldo debito|debe)$/;
-const ES_CREDITO = /^(credito|creditos|saldo credito|haber)$/;
+// Débito/Crédito, Debe/Haber, Deudor/Acreedor; Zoho agrega "neto" (Débito neto, Crédito neto).
+const ES_DEBITO = /^(saldo )?(debitos?|debe|deudor)( neto| ajustado)?$/;
+const ES_CREDITO = /^(saldo )?(creditos?|haber|acreedor)( neto| ajustado)?$/;
 
 // Busca la fila de títulos. Si los títulos Débito/Crédito están en la fila siguiente
 // (como en QuickBooks), se usa el último par, que es el saldo ajustado. QuickBooks a veces deja
@@ -36,16 +37,22 @@ const ES_CREDITO = /^(credito|creditos|saldo credito|haber)$/;
 function buscarEncabezado(filas) {
   for (let i = 0; i < Math.min(filas.length, 30); i++) {
     const celdas = filas[i].map(sinTildes);
-    const codigo = celdas.findIndex((c) => /^(codigo|cuenta|cod\.?|codigo cuenta|cuenta contable|no\.? cuenta)$/.test(c));
-    let nombre = celdas.findIndex((c, j) => j !== codigo && /(nombre|descripcion|detalle)/.test(c));
+    // Zoho trae "Cuenta" (el nombre) y "Código de la cuenta": si hay una columna de código explícita,
+    // "Cuenta" es el nombre.
+    const codigoExplicito = celdas.findIndex((c) => /^(codigo|cod\.?|numero|no\.?)( de)?( la)? cuenta$/.test(c));
+    const codigo = codigoExplicito !== -1 ? codigoExplicito
+      : celdas.findIndex((c) => /^(codigo|cuenta|cod\.?|cuenta contable)$/.test(c));
+    let nombre = celdas.findIndex((c, j) => j !== codigo && (/(nombre|descripcion|detalle)/.test(c) || (codigoExplicito !== -1 && c === 'cuenta')));
 
     const saldo = celdas.findIndex((c) => /(saldo final|nuevo saldo|saldo actual|saldo ajustado|saldo a )/.test(c) && !ES_DEBITO.test(c));
     const saldoSimple = celdas.findIndex((c) => c === 'saldo');
     let filaDatos = i + 1;
     let debitos = celdas.flatMap((c, j) => (ES_DEBITO.test(c) ? [j] : []));
     let creditos = celdas.flatMap((c, j) => (ES_CREDITO.test(c) ? [j] : []));
-    if (!debitos.length && filas[i + 1]) {
-      const siguiente = filas[i + 1].map(sinTildes);
+    const siguiente = (filas[i + 1] || []).map(sinTildes);
+    // Si la fila siguiente ya trae sus propios títulos de cuenta, el encabezado es esa fila.
+    const siguienteEsEncabezado = siguiente.some((c) => /^(codigo|cuenta|cod\.?|nombre)\b/.test(c));
+    if (!debitos.length && filas[i + 1] && !siguienteEsEncabezado) {
       debitos = siguiente.flatMap((c, j) => (ES_DEBITO.test(c) ? [j] : []));
       creditos = siguiente.flatMap((c, j) => (ES_CREDITO.test(c) ? [j] : []));
       if (debitos.length) filaDatos = i + 2;
@@ -79,6 +86,17 @@ function separarCodigo(texto) {
   return m ? { codigo: m[1], nombre: m[2].trim() } : { codigo: '', nombre: String(texto ?? '').trim() };
 }
 
+// Títulos de sección sin montos (Zoho: Activos, Pasivo, Capital, Ingresos, Gastos).
+const SECCIONES = [
+  { patron: /^activos?$/, grupo: 'activo' },
+  { patron: /^pasivos?$/, grupo: 'pasivo' },
+  { patron: /^(capital|patrimonio|capital contable)$/, grupo: 'patrimonio' },
+  { patron: /^(ingresos|otros ingresos|ingresos de operacion)$/, grupo: 'ingresos' },
+  { patron: /^(costos?|costo de (las )?ventas|costo de (los )?(bienes|productos) vendidos)$/, grupo: 'costos' },
+  { patron: /^(gastos|otros gastos|gastos de operacion)$/, grupo: 'gastos' },
+];
+const vacia = (c) => c === undefined || c === null || String(c).trim() === '';
+
 function grupoPorNombre(nombre) {
   const n = sinTildes(nombre);
   return GRUPO_POR_NOMBRE.find((r) => r.patron.test(n))?.grupo || null;
@@ -88,13 +106,24 @@ export function leerBalanceDePrueba(filas, plan = PLANES_DE_CUENTAS.estandar) {
   const enc = buscarEncabezado(filas);
   const crudas = [];
   let sinCodigo = 0;
+  let seccion = null;
+  const padres = []; // cuentas con código por nivel de sangría, para las subcuentas que llegan sin código
   for (const fila of filas.slice(enc.filaDatos)) {
-    const textoNombre = String(fila[enc.nombre] ?? '').trim();
+    const crudo = String(fila[enc.nombre] ?? '');
+    const sangria = crudo.length - crudo.trimStart().length;
+    const textoNombre = crudo.trim();
     let { codigo, nombre } = enc.codigo !== -1 && enc.codigo !== enc.nombre
       ? { codigo: String(fila[enc.codigo] ?? '').trim(), nombre: textoNombre }
       : separarCodigo(textoNombre);
     if (!codigo && !nombre) continue;
     if (/^total/i.test(sinTildes(nombre)) || (!nombre && !codigo)) continue;
+    const sinMontos = enc.saldo !== -1 ? vacia(fila[enc.saldo]) : vacia(fila[enc.debito]) && vacia(fila[enc.credito]);
+    if (!codigo && sinMontos) {
+      const s = SECCIONES.find((x) => x.patron.test(sinTildes(nombre)));
+      if (s) { seccion = s.grupo; padres.length = 0; }
+      continue;
+    }
+    while (padres.length && padres.at(-1).sangria >= sangria) padres.pop();
 
     let saldo;
     if (enc.saldo !== -1) saldo = aNumero(fila[enc.saldo]);
@@ -102,10 +131,21 @@ export function leerBalanceDePrueba(filas, plan = PLANES_DE_CUENTAS.estandar) {
 
     if (!codigo) {
       if (!saldo) continue;
-      const grupo = grupoPorNombre(nombre);
-      if (!grupo) throw new Error(`No sé a qué grupo pertenece la cuenta sin código "${nombre}".`);
-      // Código sintético: empieza con el dígito del grupo y no es prefijo de ninguna cuenta real.
-      codigo = `${plan[grupo][0]}X${++sinCodigo}`;
+      const padre = padres.at(-1);
+      if (padre) {
+        // Subcuenta sin código: hereda el grupo de la cuenta de la que cuelga.
+        codigo = `${padre.codigo}.X${++sinCodigo}`;
+      } else {
+        // El nombre decide primero si es costo de ventas (Zoho lo pone bajo Gastos); si no, la sección.
+        const porNombre = grupoPorNombre(nombre);
+        const grupo = (seccion === 'gastos' && porNombre === 'costos') ? 'costos' : seccion || porNombre;
+        if (!grupo) throw new Error(`No sé a qué grupo pertenece la cuenta sin código "${nombre}".`);
+        // Código sintético: empieza con el dígito del grupo y no es prefijo de ninguna cuenta real.
+        const digito = plan[grupo][0] ?? plan.gastos[0];
+        codigo = `${digito}X${++sinCodigo}`;
+      }
+    } else if (/^\d/.test(codigo)) {
+      padres.push({ sangria, codigo });
     }
     if (!/^\d/.test(codigo)) continue;
     crudas.push({ codigo, nombre, saldo });

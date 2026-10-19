@@ -191,3 +191,38 @@ test('reparte los gastos en proporción a los ingresos exentos, salvo que se esc
   const sinReparto = liquidar(cuentas, {}, { repartoProporcional: false }, { mes: 12 });
   assert.equal(sinReparto.costosGastos.totalDeducibles, 70000);
 });
+
+test('lee la balanza de comprobación de Zoho: secciones, subcuentas sin código y totales por grupo', () => {
+  const filas = [
+    ['Empresa SA\n  Balanza de comprobación\n  A partir de 30 sep 2026', '', '', ''],
+    ['Cuenta ', 'Código de la cuenta ', 'Débito neto ', 'Crédito neto '],
+    ['', '', '', ''],
+    ['Activos', '', '', ''],
+    ['          Caja Menuda', '', 1000, 0],
+    ['          Maquinaria y Equipos', '1500', 5000, 0],
+    ['                    Dep Acum Maquinaria & Equipos', '', 0, 2000],
+    ['          Total para Maquinaria y Equipos', '1500', 3000, 0],
+    ['Pasivo', '', '', ''],
+    ['          Cuentas por pagar', '', 0, 500],
+    ['Capital', '', '', ''],
+    ['          Capital del propietario', '', 0, 1000],
+    ['Ingresos', '', '', ''],
+    ['          Venta de gas', '4001', 0, 10000],
+    ['Gastos', '', '', ''],
+    ['          Costes de productos vendidos', '', 6000, 0],
+    ['          Salarios y otras Remuneraciones', '6010', 0, 0],
+    ['                    Gasto de salarios', '6011', 1000, 0],
+    ['                    Indemnizacion', '', 500, 0],
+    ['          Total para Salarios y otras Remuneraciones', '6010', 1500, 0],
+    ['Total para Balanza de comprobación', '', 13500, 13500],
+  ];
+  const cuentas = leerBalanceDePrueba(filas);
+  const r = liquidar(cuentas, {}, {}, { mes: 9 });
+  assert.equal(r.patrimonio.efectivo, 1000);
+  assert.equal(r.patrimonio.propiedadesPlantaEquipo, 3000);
+  assert.equal(r.patrimonio.pasivos, 500);
+  assert.equal(r.ingresos.ingresosGravables, 10000);
+  assert.equal(r.costosGastos.costos, 6000);
+  assert.equal(r.costosGastos.gastosGenerales, 1500);
+  assert.equal(r.costosGastos.utilidadContable, 2500);
+});
